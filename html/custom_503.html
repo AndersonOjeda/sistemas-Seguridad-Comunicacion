@@ -2,18 +2,23 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>503 - Rate Limit Exceeded</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>503 · Solicitud rechazada</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a0505; color: #fee2e2; padding: 40px; text-align: center; }
-        .alert { background: #450a0a; border: 1px solid #b91c1c; border-radius: 12px; padding: 30px; display: inline-block; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-        h1 { color: #f87171; }
-        p { color: #fca5a5; }
+        body { margin: 0; padding: 28px; background: #fff2f4; color: #762638; font: 15px/1.5 "Segoe UI", sans-serif; }
+        main { max-width: 650px; margin: auto; border-left: 4px solid #b53248; padding-left: 22px; }
+        h1 { margin: 0 0 8px; font-size: 25px; }
+        p { margin: 8px 0; }
+        a { color: inherit; text-underline-offset: 3px; }
+        a:focus-visible { outline: 3px solid #762638; outline-offset: 4px; }
     </style>
 </head>
 <body>
-    <div class="alert">
-        <h1>503 Service Unavailable</h1>
-        <p><strong>Defensa Activa Activada:</strong> Tasa de solicitudes por segundo excedida (Leaky Bucket Enforcement).</p>
-    </div>
+    <main>
+        <h1>503 · Solicitud rechazada</h1>
+        <p>Nginx ha alcanzado un límite de solicitudes o conexiones para esta IP.</p>
+        <p>Espera unos segundos antes de volver a consultar. Los registros del servidor permiten identificar el límite aplicado.</p>
+        <a href="/" target="_top">Volver al laboratorio</a>
+    </main>
 </body>
 </html>

@@ -2,22 +2,104 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Servidor Web Bastionado - Nginx Hardened</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; text-align: center; }
-        .card { background: #1e293b; border-radius: 12px; padding: 30px; display: inline-block; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
-        h1 { color: #38bdf8; margin-bottom: 8px; }
-        .badge { background: #10b981; color: #022c22; padding: 4px 12px; border-radius: 9999px; font-weight: bold; font-size: 0.85rem; }
-        p { color: #94a3b8; line-height: 1.6; }
-        code { background: #090d16; padding: 2px 6px; border-radius: 4px; color: #f43f5e; font-family: Consolas, monospace; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#16384d">
+    <title>Laboratorio Nginx · Defensa en capa 7</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="panel.css">
+    <script src="panel.js" defer></script>
 </head>
 <body>
-    <div class="card">
-        <span class="badge">ESTADO: BASTIONADO & PROTEGIDO</span>
-        <h1>Nginx Capa 7 Hardened Server</h1>
-        <p>Sistemas de Comunicación y Seguridad Informática - 8vo Semestre</p>
-        <p>Mitigación activa de <code>OWASP A05:2021</code> y protección contra <code>HTTP Flood DoS</code></p>
-    </div>
+    <header class="topbar">
+        <a class="brand" href="#inicio"><span class="brand-mark" aria-hidden="true">N</span> Laboratorio Nginx</a>
+        <span class="connection" id="connection">Sin pruebas ejecutadas</span>
+    </header>
+
+    <main id="inicio">
+        <section class="intro" aria-labelledby="title">
+            <div>
+                <p class="subject">Sistemas de Comunicación y Seguridad Informática</p>
+                <h1 id="title">Una petición llega.<br>La defensa decide.</h1>
+                <p class="lead">Observa cómo un servidor web permite consultas, restringe métodos y rechaza el exceso de tráfico. Tú ejecutas la prueba; Nginx da la respuesta.</p>
+                <a class="text-link" href="#pruebas">Ir a las pruebas en vivo <span aria-hidden="true">↓</span></a>
+            </div>
+            <div class="flow" aria-label="Flujo: navegador, Nginx y respuesta HTTP">
+                <div class="flow-node"><span class="flow-icon" aria-hidden="true">↗</span><div><strong>Tu navegador</strong><small>Envía una petición HTTP</small></div></div>
+                <div class="flow-wire" aria-hidden="true">↓</div>
+                <div class="flow-node gateway"><span class="flow-icon" aria-hidden="true">N</span><div><strong>Nginx · capa 7</strong><small>Revisa el método y los límites por IP</small></div></div>
+                <div class="flow-wire" aria-hidden="true">↓</div>
+                <div class="flow-responses"><span class="status-ok">200 · Permitida</span><span class="status-denied">403 / 503 · Rechazada</span></div>
+                <p>La página permanece abierta mientras pruebas el servidor.</p>
+            </div>
+        </section>
+
+        <section class="policies" aria-label="Configuración del laboratorio">
+            <div><strong>5 <small>peticiones/s</small></strong><span>Tasa por dirección IP</span></div>
+            <div><strong>10 <small>de ráfaga</small></strong><span>Tolerancia a picos breves</span></div>
+            <div><strong>GET <small>y HEAD</small></strong><span>Métodos permitidos</span></div>
+            <div><strong>10 <small>segundos</small></strong><span>Espera de cabecera o cuerpo</span></div>
+            <p>Valores de <code>nginx.conf</code>. Son la configuración del laboratorio; las mediciones aparecen al ejecutar una prueba.</p>
+        </section>
+
+        <section id="pruebas" class="lab" aria-labelledby="lab-title">
+            <div class="section-heading"><div><h2 id="lab-title">Pon a prueba la defensa</h2><p>Ejecuta las pruebas en orden para contar qué ocurre y por qué.</p></div><span class="local-label">Destino: este servidor</span></div>
+            <noscript><p class="notice">Activa JavaScript para ejecutar las pruebas desde esta página.</p></noscript>
+            <div class="experiments">
+                <article>
+                    <span class="step">1</span><h3>Una visita normal</h3>
+                    <p>Consulta la página y revisa las cabeceras de seguridad que Nginx envía al navegador.</p>
+                    <p class="expectation">Esperado: <strong>200 OK</strong></p>
+                    <button type="button" data-test="normal" disabled>Probar consulta GET</button>
+                </article>
+                <article>
+                    <span class="step">2</span><h3>Un método restringido</h3>
+                    <p>Envía un POST sin datos. La política solo permite consultar contenido con GET y HEAD.</p>
+                    <p class="expectation">Esperado: <strong>403 Forbidden</strong></p>
+                    <button type="button" data-test="method" disabled>Probar bloqueo de POST</button>
+                </article>
+                <article>
+                    <span class="step">3</span><h3>Demasiadas solicitudes</h3>
+                    <p>Envía 40 consultas con hasta 6 en paralelo para observar la limitación de tráfico por IP.</p>
+                    <p class="expectation">Esperado: <strong>200 y rechazos 503</strong></p>
+                    <button type="button" class="burst-button" data-test="burst" disabled>Enviar ráfaga de 40</button>
+                </article>
+            </div>
+
+            <div class="results" aria-labelledby="result-title">
+                <div class="result-heading"><h3 id="result-title">Resultado de la prueba</h3><span id="progress-label">0 solicitudes enviadas</span></div>
+                <p id="test-message" role="status">Elige una prueba. Aquí verás respuestas reales de este servidor.</p>
+                <div class="meter" role="img" aria-label="Todavía no hay resultados" id="meter"><span id="bar-ok"></span><span id="bar-denied"></span><span id="bar-other"></span><span id="bar-error"></span></div>
+                <div class="counters">
+                    <div><span class="dot ok"></span><strong id="count-ok">0</strong><span>Permitidas · 2xx</span></div>
+                    <div><span class="dot denied"></span><strong id="count-denied">0</strong><span>Rechazadas · 403/503</span></div>
+                    <div><span class="dot other"></span><strong id="count-other">0</strong><span>Otros códigos</span></div>
+                    <div><span class="dot error"></span><strong id="count-error">0</strong><span>Errores de conexión</span></div>
+                </div>
+                <p class="test-note" id="test-note">Cada prueba reinicia estos contadores. No son métricas globales del servidor.</p>
+                <div class="result-detail" id="response-preview" hidden><strong>Respuesta 503 recibida de Nginx</strong><iframe title="Página de rechazo recibida durante la prueba" sandbox="allow-same-origin allow-top-navigation-by-user-activation" id="error-preview"></iframe></div>
+                <details id="request-details"><summary>Registro de solicitudes <span id="log-count">(0)</span></summary><div class="table-scroll"><table><caption class="sr-only">Solicitudes de la última prueba</caption><thead><tr><th scope="col">Petición</th><th scope="col">Método</th><th scope="col">Respuesta</th><th scope="col">Tiempo</th></tr></thead><tbody id="request-log"><tr><td colspan="4">Aún no se han enviado solicitudes.</td></tr></tbody></table></div></details>
+            </div>
+        </section>
+
+        <section class="audit" aria-labelledby="audit-title">
+            <div class="audit-explanation"><h2 id="audit-title">La seguridad también viaja en las cabeceras</h2><p>Son instrucciones que el servidor entrega al navegador. La prueba GET permite verlas sin abrir la terminal.</p><p id="audit-summary" class="audit-summary" role="status">Pendiente de comprobar</p><p class="muted">Ocultar la versión reduce información expuesta. Las cabeceras ayudan a proteger el navegador y complementan los demás controles.</p></div>
+            <div class="table-scroll"><table class="header-table"><caption class="sr-only">Cabeceras recibidas en la última prueba</caption><thead><tr><th scope="col">Cabecera y propósito</th><th scope="col">Valor recibido</th></tr></thead><tbody>
+                <tr><th scope="row"><code>Server</code><small>Oculta el número de versión</small></th><td data-header="server">Pendiente</td></tr>
+                <tr><th scope="row"><code>X-Frame-Options</code><small>Restringe marcos de otros sitios</small></th><td data-header="x-frame-options">Pendiente</td></tr>
+                <tr><th scope="row"><code>X-Content-Type-Options</code><small>Evita adivinar el tipo de contenido</small></th><td data-header="x-content-type-options">Pendiente</td></tr>
+                <tr><th scope="row"><code>Content-Security-Policy</code><small>Controla los recursos permitidos</small></th><td data-header="content-security-policy">Pendiente</td></tr>
+                <tr><th scope="row"><code>Referrer-Policy</code><small>Limita información de procedencia</small></th><td data-header="referrer-policy">Pendiente</td></tr>
+                <tr><th scope="row"><code>Permissions-Policy</code><small>Deshabilita cámara, micrófono y ubicación</small></th><td data-header="permissions-policy">Pendiente</td></tr>
+                <tr><th scope="row"><code>X-XSS-Protection</code><small>Desactiva el filtro XSS antiguo; se usa CSP</small></th><td data-header="x-xss-protection">Pendiente</td></tr>
+            </tbody></table></div>
+        </section>
+
+        <section class="explain" aria-labelledby="explain-title"><h2 id="explain-title">Cómo explicar lo que acabas de ver</h2><div>
+            <p><strong>Hardening.</strong> Configurar el servidor para reducir exposición y permitir solo lo necesario. Aquí lo vemos en las cabeceras y en el bloqueo de POST.</p>
+            <p><strong>Disponibilidad.</strong> Limitar el exceso de solicitudes ayuda a conservar recursos. Un 503 en esta prueba muestra un rechazo; los registros de Nginx permiten confirmar qué límite lo produjo.</p>
+            <p><strong>Alcance.</strong> Es una demostración de seguridad HTTP en capa 7. La ráfaga del navegador no demuestra resistencia a un DDoS real ni prueba por sí sola los tiempos de espera contra conexiones lentas.</p>
+        </div></section>
+    </main>
+    <footer><span>Nginx + Docker · Laboratorio de seguridad</span><span>Pruebas locales, sin servicios externos</span></footer>
 </body>
 </html>
