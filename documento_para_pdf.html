@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Informe y Guía de Sustentación - Nginx Hardening y DoS Capa 7</title>
+<style>
+    @page {
+        size: A4;
+        margin: 20mm 15mm 20mm 15mm;
+        @bottom-right {
+            content: counter(page);
+        }
+    }
+    
+    body {
+        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+        font-size: 10.5pt;
+        line-height: 1.55;
+        color: #1e293b;
+        background: #ffffff;
+        margin: 0;
+        padding: 0;
+    }
+
+    h1, h2, h3, h4, h5 {
+        color: #0f172a;
+        font-weight: 700;
+        page-break-after: avoid;
+    }
+
+    .cover-page {
+        page-break-after: always;
+        text-align: center;
+        padding-top: 50px;
+    }
+
+    .univ-title {
+        font-size: 14pt;
+        letter-spacing: 2px;
+        color: #64748b;
+        text-transform: uppercase;
+        margin-bottom: 25px;
+        font-weight: 600;
+    }
+
+    .doc-main-title {
+        font-size: 22pt;
+        line-height: 1.25;
+        color: #0284c7;
+        margin-bottom: 12px;
+        font-weight: 800;
+    }
+
+    .doc-subtitle {
+        font-size: 13pt;
+        color: #334155;
+        margin-bottom: 35px;
+        font-weight: 500;
+    }
+
+    .badge-bar {
+        margin-bottom: 40px;
+    }
+
+    .badge {
+        display: inline-block;
+        padding: 6px 14px;
+        border-radius: 9999px;
+        font-size: 8.5pt;
+        font-weight: bold;
+        text-transform: uppercase;
+        margin: 0 4px;
+    }
+
+    .badge-blue { background: #e0f2fe; color: #0369a1; }
+    .badge-green { background: #dcfce7; color: #15803d; }
+    .badge-purple { background: #f3e8ff; color: #7e22ce; }
+
+    .metadata-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 22px;
+        margin: 0 auto;
+        max-width: 520px;
+        text-align: left;
+    }
+
+    .metadata-card table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .metadata-card td {
+        padding: 6px 4px;
+        font-size: 9.5pt;
+    }
+
+    .metadata-label {
+        font-weight: bold;
+        color: #475569;
+        width: 38%;
+    }
+
+    .metadata-val {
+        color: #0f172a;
+    }
+
+    h1 {
+        font-size: 16pt;
+        border-bottom: 2px solid #0284c7;
+        padding-bottom: 5px;
+        margin-top: 30px;
+        margin-bottom: 14px;
+    }
+
+    h2 {
+        font-size: 13pt;
+        color: #0369a1;
+        margin-top: 22px;
+        margin-bottom: 10px;
+    }
+
+    h3 {
+        font-size: 11pt;
+        color: #0f172a;
+        margin-top: 16px;
+        margin-bottom: 8px;
+    }
+
+    p {
+        margin: 0 0 10px 0;
+        text-align: justify;
+    }
+
+    ul, ol {
+        margin: 0 0 12px 20px;
+        padding: 0;
+    }
+
+    li {
+        margin-bottom: 5px;
+    }
+
+    pre {
+        background: #0f172a;
+        color: #f8fafc;
+        padding: 12px;
+        border-radius: 6px;
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 8.5pt;
+        line-height: 1.4;
+        overflow-x: auto;
+        page-break-inside: avoid;
+        margin: 10px 0 14px 0;
+        border: 1px solid #1e293b;
+    }
+
+    code {
+        font-family: 'Consolas', monospace;
+        font-size: 9pt;
+        background: #f1f5f9;
+        color: #be123c;
+        padding: 2px 5px;
+        border-radius: 4px;
+    }
+
+    pre code {
+        background: none;
+        color: inherit;
+        padding: 0;
+    }
+
+    table.data-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 14px 0 18px 0;
+        font-size: 9pt;
+        page-break-inside: avoid;
+    }
+
+    table.data-table th {
+        background: #0284c7;
+        color: #ffffff;
+        text-align: left;
+        padding: 8px 10px;
+        font-weight: 600;
+        border: 1px solid #0284c7;
+    }
+
+    table.data-table td {
+        padding: 7px 10px;
+        border: 1px solid #cbd5e1;
+        vertical-align: top;
+    }
+
+    table.data-table tr:nth-child(even) {
+        background: #f8fafc;
+    }
+
+    .callout {
+        border-left: 4px solid #0284c7;
+        background: #f0f9ff;
+        padding: 10px 14px;
+        border-radius: 0 6px 6px 0;
+        margin: 12px 0 16px 0;
+        font-size: 9.5pt;
+        page-break-inside: avoid;
+    }
+
+    .callout-success {
+        border-left-color: #10b981;
+        background: #ecfdf5;
+    }
+
+    .callout-warning {
+        border-left-color: #f59e0b;
+        background: #fffbeb;
+    }
+
+    .quote-box {
+        background: #f8fafc;
+        border-left: 3px solid #64748b;
+        padding: 10px 14px;
+        margin: 10px 0 14px 0;
+        font-style: italic;
+        color: #334155;
+        page-break-inside: avoid;
+    }
+
+    .slide-card {
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+        background: #ffffff;
+        page-break-inside: avoid;
+    }
+
+    .slide-header {
+        font-weight: bold;
+        color: #0369a1;
+        font-size: 10.5pt;
+        margin-bottom: 6px;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 4px;
+    }
+
+    .page-break {
+        page-break-before: always;
+    }
+</style>
+</head>
+<body>
+
+<!-- PORTADA -->
+<div class="cover-page">
+    <div class="univ-title">Sistemas de Comunicación y Seguridad Informática &bull; 8vo Semestre</div>
+    <div class="doc-main-title">Bastionado Integral (Hardening) y Defensa Activa en Capa 7 de Servidores Nginx con Docker</div>
+    <div class="doc-subtitle">Mitigación Determinista de OWASP A05:2021 y Ataques DoS HTTP Flood</div>
+    
+    <div class="badge-bar">
+        <span class="badge badge-blue">Capa 7 OSI</span>
+        <span class="badge badge-green">Leaky Bucket SHM</span>
+        <span class="badge badge-purple">Docker Isolation</span>
+    </div>
+
+    <div class="metadata-card">
+        <table>
+            <tr>
+                <td class="metadata-label">Asignatura:</td>
+                <td class="metadata-val">Sistemas de Comunicación y Seguridad Informática</td>
+            </tr>
+            <tr>
+                <td class="metadata-label">Unidades Integradas:</td>
+                <td class="metadata-val">Semana 5 (Hardening & OWASP) + Semana 10 (Defensa Red L7)</td>
+            </tr>
+            <tr>
+                <td class="metadata-label">Nivel de Estudio:</td>
+                <td class="metadata-val">8vo Semestre — Ingeniería</td>
+            </tr>
+            <tr>
+                <td class="metadata-label">Equipo de Trabajo:</td>
+                <td class="metadata-val">3 Integrantes (Expositores 1 a 3)</td>
+            </tr>
+            <tr>
+                <td class="metadata-label">Entorno Técnico:</td>
+                <td class="metadata-val">Nginx Alpine, Docker Bridge, Apache Benchmark, PowerShell</td>
+            </tr>
+            <tr>
+                <td class="metadata-label">Estado de Validación:</td>
+                <td class="metadata-val"><strong>Aprobado y Verificado Experimentalmente</strong></td>
+            </tr>
+        </table>
+    </div>
+
+    <div style="margin-top: 50px; color: #64748b; font-size: 9pt;">
+        Documento y Manual Oficial de Sustentación para Evaluación Académica
+    </div>
+</div>
+
+<!-- RESUMEN EJECUTIVO -->
+<h1>1. Resumen Ejecutivo (Abstract)</h1>
+<p>
+El presente informe documenta el diseño, despliegue y análisis forense de una solución de <strong>Bastionado (Hardening)</strong> y <strong>Defensa Activa en Capa 7 (Aplicación)</strong> para servidores web Nginx contenedorizados en Docker. La arquitectura mitiga deterministamente dos vectores críticos de ataque contemporáneos:
+</p>
+<ol>
+    <li><strong>Exposición de Metadatos y Vulnerabilidades del Cliente (OWASP A05:2021 - Security Misconfiguration):</strong> Supresión de versión del servidor para neutralizar el <em>Banner Grabbing</em>, restricción de verbos HTTP (<code>GET</code>/<code>HEAD</code>) e inyección de encabezados HTTP mandatorios (<code>X-Frame-Options</code>, <code>X-Content-Type-Options</code>, <code>Content-Security-Policy</code>, <code>X-XSS-Protection: 0</code>, <code>Referrer-Policy</code>, <code>Permissions-Policy</code>) que mitigan ataques de <em>Clickjacking</em>, <em>XSS</em> y <em>MIME-Sniffing</em>.</li>
+    <li><strong>Denegación de Servicio en Capa de Aplicación (Capa 7 HTTP Flood y Slowloris):</strong> Configuración de zonas de memoria compartida (Shared Memory Zones de 10 MB) con rastreo de IP binaria (<code>$binary_remote_addr</code>): algoritmo <strong>Leaky Bucket</strong> con tasa nominal de <strong>5 r/s</strong> y ráfaga <code>burst=10 nodelay</code>, límite de <strong>20 conexiones TCP concurrentes por IP</strong> y timeouts estrictos anti-Slowloris (<code>10s</code>).</li>
+</ol>
+<p>
+Bajo una prueba de estrés masiva con <strong>Apache Benchmark (1000 solicitudes, concurrencia 50)</strong>, el sistema demostró un comportamiento determinista: en <strong>4.100 segundos</strong> admitió exactamente <strong>31 peticiones legítimas (200 OK)</strong> y rechazó <strong>969 solicitudes excedentes (503 Service Unavailable, 96.9%)</strong>, además de bloquear métodos no permitidos (<code>POST</code> &rarr; <code>403</code>) manteniendo el contenedor estable bajo límites de <strong>128 MB RAM</strong> y <strong>0.50 CPU</strong>.
+</p>
+
+<!-- FASE 1 -->
+<h1>2. Fase 1: Contextualización y Escenario de Amenaza</h1>
+<p>
+Los servidores web perimetrales constituyen la frontera de exposición directa hacia redes inseguras. Los firewalls convencionales de paquetes (Capas 3 y 4 del modelo OSI) resultan inoperantes frente a ataques en Capa 7, ya que el tráfico se encapsula sobre conexiones TCP formalmente completadas (Three-Way Handshake legítimo).
+</p>
+
+<div class="callout callout-warning">
+    <strong>Vectores de Ataque Primarios:</strong>
+    <ul>
+        <li><strong>Banner Grabbing y Fingerprinting:</strong> Escaneo automatizado mediante <code>curl -I</code>, Nmap o Shodan para extraer cadenas del tipo <code>Server: nginx/1.25.3</code> y correlacionar vulnerabilidades conocidas en la base NVD/CVE.</li>
+        <li><strong>Ataques en el Navegador del Cliente (OWASP A05):</strong> Explotación de la falta de cabeceras restrictivas para incrustar el sitio en marcos invisibles (Clickjacking) o engañar al intérprete MIME del navegador (MIME-Sniffing).</li>
+        <li><strong>Inundación HTTP (HTTP Flood DoS):</strong> Saturación deliberada de los descriptores de archivo (file descriptors) y procesos worker del servidor mediante solicitudes concurrentes masivas.</li>
+    </ul>
+</div>
+
+<!-- FASE 2 -->
+<h1>3. Fase 2: Fundamentación Teórica</h1>
+
+<h2>3.1 OWASP Top 10 — A05:2021 (Security Misconfiguration)</h2>
+<ul>
+    <li><strong>Supresión de Banner:</strong> La directiva <code>server_tokens off;</code> elimina la subversión de Nginx en los encabezados HTTP y en las páginas de error estándar generadas por el motor web.</li>
+    <li><strong>Clickjacking (UI Redressing):</strong> <code>X-Frame-Options: SAMEORIGIN</code> y <code>frame-ancestors 'self'</code> (en CSP) ordenan al navegador no permitir que el sitio sea incrustado en etiquetas <code>&lt;iframe&gt;</code> de otros dominios.</li>
+    <li><strong>MIME-Sniffing (Type Confusion):</strong> <code>X-Content-Type-Options: nosniff</code> obliga al cliente a ceñirse al <code>Content-Type</code> declarado por el servidor, impidiendo que archivos no ejecutables sean interpretados como scripts JavaScript.</li>
+    <li><strong>Content Security Policy y cabeceras modernas:</strong> <code>Content-Security-Policy</code> restringe los orígenes de carga, <code>X-XSS-Protection: 0</code> sigue la guía vigente de OWASP junto con CSP, y <code>Permissions-Policy</code> bloquea APIs sensibles del navegador.</li>
+    <li><strong>Directiva <code>always</code>:</strong> Garantiza que Nginx inyecte las cabeceras de seguridad incluso cuando las respuestas devuelven códigos de error (4xx y 5xx).</li>
+    <li><strong>Restricción de métodos y Anti-Slowloris:</strong> <code>limit_except GET</code> bloquea verbos innecesarios (<code>POST</code>, <code>PUT</code>, <code>DELETE</code>), mientras <code>limit_conn zona_conn 20;</code> y timeouts de <code>10s</code> evitan el agotamiento de sockets por conexiones lentas.</li>
+</ul>
+
+<h2>3.2 Algoritmo de Defensa Activa: Leaky Bucket en Memoria Compartida</h2>
+<p>
+El módulo <code>ngx_http_limit_req_module</code> modela el consumo de recursos como un cubo con una fuga constante.
+</p>
+<ul>
+    <li><strong>Optimización con <code>$binary_remote_addr</code>:</strong> En lugar de almacenar cadenas de texto ASCII de 15 bytes, Nginx almacena la dirección IPv4 en representación binaria de <strong>4 bytes</strong>. En una zona de <strong>10 Megabytes (SHM)</strong>, esto permite monitorear de forma concurrente el estado de más de <strong>160,000 direcciones IP</strong> simultáneas en memoria RAM.</li>
+    <li><strong>Tasa nominal (<code>rate=5r/s</code>):</strong> Fija el ritmo de atención a 1 petición cada 200 ms.</li>
+    <li><strong>Búfer de Tolerancia (<code>burst=10</code>):</strong> Permite absorber ráfagas legítimas de tráfico transitorio.</li>
+    <li><strong>Política Fail-Fast (<code>nodelay</code>):</strong> Atiende los slots disponibles del burst inmediatamente y <em>descarta al instante</em> toda petición excedente con código <code>503 Service Unavailable</code> sin encolamientos lentos que bloqueen sockets en el kernel.</li>
+</ul>
+
+<div class="page-break"></div>
+
+<!-- FASE 3 Y 4 -->
+<h1>4. Fase 3 y 4: Arquitectura e Implementación del Stack</h1>
+
+<h2>4.1 Arquitectura de Red Aislada (Docker Bridge)</h2>
+<p>
+Para aislar las mediciones y descartar latencias de redes externas, se desplegó la subred <code>red-defensa (172.28.0.0/16)</code>:
+</p>
+<ul>
+    <li><strong>Servidor Defensor (<code>172.28.0.10</code>):</strong> Nginx Alpine con montaje de volúmenes en solo lectura (<code>:ro</code>).</li>
+    <li><strong>Cliente Atacante (<code>172.28.0.20</code>):</strong> Contenedor Alpine instrumentalizado con <code>apache2-utils</code> (Apache Benchmark) y <code>curl</code>.</li>
+</ul>
+
+<h2>4.2 Archivo de Configuración Maestro: <code>nginx.conf</code></h2>
+<pre><code>events {
+    worker_connections 1024;
+}
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    # --- MITIGACIÓN OWASP A05:2021 (HARDENING) ---
+    server_tokens off;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self';" always;
+    add_header X-XSS-Protection "0" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+
+    # --- PROTECCIÓN ANTI-SLOWLORIS Y TIMEOUTS ---
+    client_header_timeout 10s;
+    client_body_timeout   10s;
+    send_timeout          10s;
+    keepalive_timeout     15s;
+    reset_timedout_connection on;
+    client_max_body_size  1m;
+    limit_conn_zone $binary_remote_addr zone=zona_conn:10m;
+    limit_conn_status 503;
+
+    # --- DEFENSA ACTIVA EN CAPA 7 (RATE LIMITING) ---
+    limit_req_zone $binary_remote_addr zone=zona_limite:10m rate=5r/s;
+    limit_req_status 503;
+
+    server {
+        listen 80;
+        server_name localhost;
+
+        location / {
+            limit_except GET {
+                deny all;
+            }
+            limit_conn zona_conn 20;
+            limit_req zone=zona_limite burst=10 nodelay;
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+        }
+
+        error_page 503 /custom_503.html;
+        location = /custom_503.html {
+            root /usr/share/nginx/html;
+            internal;
+        }
+    }
+}</code></pre>
+
+<!-- FASE 5 -->
+<h1>5. Fase 5: Análisis Forense de Resultados Experimentales</h1>
+
+<h2>5.1 Auditoría Perimetral de Cabeceras y Métodos con <code>curl.exe</code></h2>
+<pre><code>HTTP/1.1 200 OK
+Server: nginx
+Date: Tue, 10 Nov 2026 18:28:39 GMT
+Content-Type: text/html
+Content-Length: 1203
+Last-Modified: Tue, 10 Nov 2026 04:54:42 GMT
+Connection: keep-alive
+ETag: "6af2a392-4b3"
+X-Frame-Options: SAMEORIGIN
+X-Content-Type-Options: nosniff
+Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self';
+X-XSS-Protection: 0
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: geolocation=(), microphone=(), camera=()
+
+# Verificación de restricción de método HTTP (POST):
+POST status: 403</code></pre>
+<p>
+<strong>Conclusión de Auditoría:</strong> El banner sólo reporta <code>nginx</code> (versión exacta suprimida). Las cabeceras de protección (incluida <code>Content-Security-Policy</code> y <code>Permissions-Policy</code>) están activas y las peticiones <code>POST</code> son rechazadas con <code>403 Forbidden</code>.
+</p>
+
+<h2>5.2 Prueba de Estrés DoS con Apache Benchmark (<code>ab -n 1000 -c 50</code>)</h2>
+<pre><code>Document Length:        1203 bytes
+Concurrency Level:      50
+Time taken for tests:   4.100 seconds
+Complete requests:      1000
+Failed requests:        969 (Non-2xx responses: 969)
+Requests per second:    243.88 [#/sec] (mean)
+Time per request:       4.100 [ms] (across all concurrent requests)</code></pre>
+
+<div class="callout callout-success">
+    <strong>Deducción Matemática Forense: ¿Por qué 31 OK y 969 Bloqueadas?</strong>
+    <ul>
+        <li><strong>1 Petición Base:</strong> Concedida al instante <i>t</i> = 0 según la tasa nominal (<code>rate=5r/s</code>).</li>
+        <li><strong>10 Peticiones en Burst:</strong> Absorbidas de inmediato en los 10 slots del búfer (<code>burst=10 nodelay</code>).</li>
+        <li><strong>20 Peticiones por Drenaje:</strong> Durante los <strong>4.100 s</strong> de la prueba (con el contenedor acotado a <code>0.50 CPU</code>), el cubo drena &lfloor;5 r/s &times; 4.100 s&rfloor; = 20 tokens adicionales.</li>
+        <li><strong>Total Aceptadas:</strong> 1 + 10 + 20 = <strong>31 peticiones (200 OK)</strong>.</li>
+        <li><strong>969 Peticiones Rechazadas:</strong> Descartadas en memoria compartida (SHM) con código <strong>503</strong> (<code>custom_503.html</code> de 749 bytes), verificadas en <code>docker logs</code> sin saturar el sistema.</li>
+    </ul>
+</div>
+
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Parámetro Comparativo</th>
+            <th>Backend / Servidor Sin Rate Limiting</th>
+            <th>Servidor Hardened (Defensa Activa Nginx)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Código HTTP ante Flood</strong></td>
+            <td>100% del tráfico golpea al backend (riesgo de 504/502)</td>
+            <td><strong>503 Service Unavailable</strong> controlado (96.9% frenado)</td>
+        </tr>
+        <tr>
+            <td><strong>Exposición del Servicio</strong></td>
+            <td>1000 peticiones llegan al aplicativo/BD</td>
+            <td><strong>Solo 31 peticiones (3.1%)</strong> pasan en 4.100 s</td>
+        </tr>
+        <tr>
+            <td><strong>Protección Anti-Slowloris</strong></td>
+            <td>Vulnerable a agotamiento de sockets</td>
+            <td><strong><code>limit_conn 20</code></strong> + timeouts de 10 s</td>
+        </tr>
+        <tr>
+            <td><strong>Consumo de CPU / RAM</strong></td>
+            <td>Escala con el backend y riesgo de OOM</td>
+            <td>Acotado a <strong>128 MB RAM / 0.50 CPU</strong> y evaluación <i>O</i>(1) en SHM</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- 10 DIAPOSITIVAS -->
+<h1>6. Diseño Estructurado de 10 Diapositivas para la Presentación</h1>
+
+<div class="slide-card">
+    <div class="slide-header">Diapositiva 1: Portada y Presentación del Proyecto</div>
+    <p><strong>Contenido:</strong> Título del proyecto, asignatura (Sistemas de Comunicación y Seguridad Informática), nombres de los 3 integrantes, logos institucionales de Nginx, Docker y OWASP.</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Diapositiva 2: Planteamiento del Problema — Escenario de Amenaza</div>
+    <p><strong>Contenido:</strong> Vulnerabilidad de la Capa 7 frente a firewalls L3/L4. Vectores de Banner Grabbing (identificación de CVEs) y ataque de agotamiento de recursos (HTTP Flood).</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Diapositiva 3: Fundamentación OWASP A05:2021 (Security Misconfiguration)</div>
+    <p><strong>Contenido:</strong> Fuga de metadatos en cabeceras. Vectores en el cliente: Clickjacking (<code>X-Frame-Options: SAMEORIGIN</code> y CSP <code>frame-ancestors 'self'</code>), MIME-Sniffing (<code>X-Content-Type-Options: nosniff</code>), <code>Content-Security-Policy</code> y restricción de verbos (<code>limit_except GET</code>).</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Diapositiva 4: Fundamentación Teórica — Defensa Activa y Tríada CIA</div>
+    <p><strong>Contenido:</strong> Disponibilidad como pilar fundamental. Algoritmo Leaky Bucket (<code>5 r/s</code>, <code>burst=10</code>, <code>nodelay</code>), límite de conexiones concurrentes (<code>limit_conn 20</code>) y timeouts de <code>10s</code> anti-Slowloris.</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Diapositiva 5: Arquitectura del Laboratorio (Stack Técnico en Docker)</div>
+    <p><strong>Contenido:</strong> Diagrama de red Docker con la subred bridge <code>red-defensa (172.28.0.0/16)</code>. Nodo defensor Nginx Alpine (172.28.0.10, volúmenes <code>:ro</code>, límite 128 MB / 0.50 CPU) y nodo atacante Alpine con Apache Benchmark (172.28.0.20).</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Diapositiva 6: Análisis de Configuración Nginx (<code>nginx.conf</code>)</div>
+    <p><strong>Contenido:</strong> Explicación de directivas clave: <code>limit_req_zone $binary_remote_addr zone=zona_limite:10m rate=5r/s</code> (4 bytes por IP), <code>limit_conn</code>, timeouts y directiva <code>always</code>.</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Diapositiva 7: Auditoría Práctica de Cabeceras y Métodos con cURL</div>
+    <p><strong>Contenido:</strong> Ejecución de <code>curl.exe -I http://localhost</code> y prueba <code>POST</code> (&rarr; <code>403</code>). Demostración de versión oculta y presencia de encabezados de seguridad.</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Diapositiva 8: Prueba de Carga y Simulación de Ataque DoS L7</div>
+    <p><strong>Contenido:</strong> Parámetros del ataque con <code>ab -n 1000 -c 50 http://172.28.0.10/</code>. Simulación de 50 usuarios concurrentes en ráfaga.</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Diapositiva 9: Análisis Forense de Resultados (31 OK vs 969 Bloqueadas)</div>
+    <p><strong>Contenido:</strong> Justificación matemática de las 31 peticiones <code>200 OK</code> y 969 bloqueadas con <code>503</code> (<code>96.9%</code>) en 4.100 segundos bajo evaluación <i>O</i>(1) en memoria compartida.</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Diapositiva 10: Conclusiones y Buenas Prácticas de Ingeniería</div>
+    <p><strong>Contenido:</strong> Importancia del bastionado perimetral en Capa 7, uso eficiente de memoria compartida en microservicios e integración en pipelines CI/CD.</p>
+</div>
+
+<!-- GUION SUSTENTACION -->
+<h1>7. Guion de Sustentación Formal para los 3 Integrantes</h1>
+
+<div class="quote-box">
+    <strong>Expositor 1: Introducción, Escenario de Amenaza y OWASP A05:2021 (Diapositivas 1 a 3)</strong><br>
+    "Estimado docente y compañeros, buenas tardes. Hoy presentamos nuestro proyecto de fin de semestre: <strong>Bastionado Integral y Defensa Activa en Capa 7 sobre Nginx con Docker</strong>.<br><br>
+    Al analizar la seguridad en el modelo OSI, observamos que las organizaciones blindan las Capas 3 y 4 con firewalls de paquetes, pero dejan desprotegida la <strong>Capa 7 (Capa de Aplicación)</strong>. Un atacante no necesita saturar el ancho de banda con tráfico UDP masivo; puede establecer conexiones TCP legales mediante el Three-Way Handshake y bombardear el servidor con peticiones HTTP legítimas que agotan descriptores de archivo, buffers de socket y workers.<br><br>
+    A su vez, mediante <strong>Banner Grabbing</strong>, herramientas automatizadas escanean el encabezado <code>Server</code> para correlacionar versiones exactas con vulnerabilidades CVE conocidas. En este proyecto atacamos directamente la categoría <strong>OWASP A05:2021 (Security Misconfiguration)</strong> suprimiendo la versión con <code>server_tokens off</code>, restringiendo los verbos HTTP a <code>GET</code>/<code>HEAD</code> e inyectando cabeceras mandatorias con la bandera <code>always</code>: <code>X-Frame-Options: SAMEORIGIN</code> para neutralizar el <strong>Clickjacking</strong>, <code>X-Content-Type-Options: nosniff</code> para erradicar el <strong>MIME-Sniffing</strong>, y <code>Content-Security-Policy</code> junto con <code>Permissions-Policy</code>."
+</div>
+
+<div class="quote-box">
+    <strong>Expositor 2: Fundamentación Teórica, Rate Limiting y Arquitectura Docker (Diapositivas 4 a 6)</strong><br>
+    "Para garantizar el pilar de <strong>Disponibilidad en la Tríada CIA</strong>, implementamos una estrategia de Defensa Activa fundamentada en el algoritmo <strong>Leaky Bucket (Cubo Perforado)</strong> mediante <code>ngx_http_limit_req_module</code> y protección anti-Slowloris con <code>ngx_http_limit_conn_module</code>.<br><br>
+    Nuestra directiva central es <code>limit_req_zone $binary_remote_addr zone=zona_limite:10m rate=5r/s;</code>. Destacamos el uso de <code>$binary_remote_addr</code>: representa la dirección IP en formato de red binario de <strong>4 bytes</strong> para IPv4, a diferencia de los 15 bytes que consume una cadena de texto. En un segmento de <strong>10 MB de memoria compartida (SHM)</strong>, Nginx tiene la capacidad de monitorear más de <strong>160,000 direcciones IP simultáneas</strong> en tiempo real.<br><br>
+    Fijamos una tasa de fuga de 5 r/s (1 solicitud cada 200 ms) combinada con <code>burst=10 nodelay</code>, un tope de <strong>20 conexiones TCP simultáneas por IP</strong> (<code>limit_conn</code>) y timeouts de <strong>10 segundos</strong> para mitigar conexiones lentas. Toda la solución corre en una red bridge aislada <code>red-defensa (172.28.0.0/16)</code> con volúmenes en solo lectura (<code>:ro</code>) y recursos acotados a 128 MB de RAM y 0.50 CPU."
+</div>
+
+<div class="quote-box">
+    <strong>Expositor 3: Demostración en Vivo, Análisis Forense de Resultados y Conclusiones (Diapositivas 7 a 10)</strong><br>
+    "Procederemos ahora con la demostración en vivo y el análisis forense de la telemetría.<br><br>
+    En primer lugar, realizamos la auditoría de hardening perimetral ejecutando <code>curl.exe -I http://localhost</code> desde el host. Confirmamos que el encabezado <code>Server</code> reporta exclusivamente <code>nginx</code>, constatamos la emisión activa de <code>X-Frame-Options</code>, <code>X-Content-Type-Options</code>, <code>Content-Security-Policy</code> y <code>Permissions-Policy</code>, y validamos que una petición <code>POST</code> es bloqueada con <code>403 Forbidden</code>.<br><br>
+    A continuación, ingresamos al contenedor atacante y desatamos una prueba de estrés de Capa 7 utilizando Apache Benchmark: <code>ab -n 1000 -c 50 http://172.28.0.10/</code>, inyectando 1000 peticiones en 50 hilos simultáneos.<br><br>
+    <em>(Ejecuta la prueba y muestra la consola)</em><br><br>
+    Observen las métricas forenses: de las 1000 peticiones procesadas en <strong>4.100 segundos</strong>, <strong>exactamente 31 peticiones resultaron 200 OK y 969 fueron bloqueadas con código 503</strong>. La deducción matemática coincide con el algoritmo Leaky Bucket: se concede 1 petición base en <i>t</i> = 0, 10 peticiones absorben los slots del <code>burst=10</code>, y durante los 4.100 s de la prueba el cubo drena &lfloor;5 &times; 4.100&rfloor; = 20 tokens adicionales (1 + 10 + 20 = 31). Las 969 solicitudes restantes fueron interceptadas y rechazadas al instante en memoria compartida.<br><br>
+    Esto demuestra que el servidor no colapsó ni desbordó sus límites de 128 MB de RAM y 0.50 CPU, sino que ejecutó una <strong>Defensa Activa Exitosa en Capa 7</strong>. Quedamos a disposición del profesor para la ronda de preguntas."
+</div>
+
+<div class="page-break"></div>
+
+<!-- CHEAT SHEET -->
+<h1>8. Manual Rápido de Ejecución en Vivo (Cheat Sheet)</h1>
+
+<pre><code># 1. Ubicarse en la carpeta del proyecto y levantar el stack con Docker Compose
+cd "c:\Users\Anderson Ojeda\Downloads\final2\final2"
+docker compose up -d
+
+# 2. Instalar herramientas de auditoría y ataque en el contenedor atacante
+docker exec cliente-atacante apk add --no-cache apache2-utils curl
+
+# 3. Auditoría de Cabeceras y Métodos OWASP A05 (Desde el Host en PowerShell)
+curl.exe -I http://localhost
+curl.exe -s -o NUL -w "POST status: %{http_code}`n" -X POST http://localhost
+
+# 4. Ataque de Inundación DoS L7 (Desde el Atacante)
+docker exec -it cliente-atacante ab -n 1000 -c 50 http://172.28.0.10/
+
+# 5. Inspección de logs forenses en Nginx
+docker logs --tail 25 servidor-defensa
+
+# 6. Limpieza final del entorno
+docker compose down</code></pre>
+
+<!-- BANCO DE PREGUNTAS -->
+<h1>9. Banco de Preguntas Avanzadas para la Sustentación</h1>
+
+<div class="slide-card">
+    <div class="slide-header">Pregunta 1: ¿Por qué usar <code>$binary_remote_addr</code> en lugar de <code>$remote_addr</code> en <code>limit_req_zone</code>?</div>
+    <p><strong>Respuesta:</strong> <code>$binary_remote_addr</code> guarda la IP en formato binario de red (4 bytes para IPv4), mientras que <code>$remote_addr</code> usa cadenas ASCII de 7 a 15 bytes. Esto optimiza el uso de la memoria compartida (SHM), permitiendo registrar 160,000 IPs en 10 MB.</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Pregunta 2: ¿Por qué se procesaron 31 peticiones exitosas y no exactamente 5 con <code>rate=5r/s</code>?</div>
+    <p><strong>Respuesta:</strong> Debido al acoplamiento de <code>burst=10</code>, <code>nodelay</code> y los 4.100 s que duró la prueba. Se aprueba 1 solicitud base + 10 solicitudes en ráfaga + &lfloor;5 &times; 4.100&rfloor; = 20 tokens drenados durante la ejecución (1 + 10 + 20 = 31), rechazando las 969 restantes con 503.</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Pregunta 3: ¿Cuál es la diferencia técnica entre devolver HTTP 503 frente a HTTP 429?</div>
+    <p><strong>Respuesta:</strong> <code>503 Service Unavailable</code> indica indisponibilidad temporal y es el valor por defecto de Nginx para proteger el motor. <code>429 Too Many Requests</code> (RFC 6585) es el código formal para rate limiting en APIs REST.</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Pregunta 4: ¿Por qué la prueba de estrés no saturó la CPU ni tumbó el servidor?</div>
+    <p><strong>Respuesta:</strong> Gracias a la arquitectura orientada a eventos no bloqueante (<code>epoll</code>) y a la evaluación en memoria compartida <i>O</i>(1). Nginx descarta las 969 solicitudes excedentes en RAM sirviendo <code>custom_503.html</code> sin saturar un eventual backend, además de estar protegido por <code>limit_conn 20</code>, timeouts de 10 s y límites de 128 MB / 0.50 CPU.</p>
+</div>
+
+<div class="slide-card">
+    <div class="slide-header">Pregunta 5: ¿Por qué es mandatoria la directiva <code>always</code> en <code>add_header</code>?</div>
+    <p><strong>Respuesta:</strong> Por defecto, Nginx solo añade cabeceras en respuestas 2xx/3xx. La bandera <code>always</code> obliga a inyectar las cabeceras de seguridad también en códigos de error (4xx y 5xx), impidiendo que respuestas de error sean vulnerables a Clickjacking en un iframe.</p>
+</div>
+
+</body>
+</html>
