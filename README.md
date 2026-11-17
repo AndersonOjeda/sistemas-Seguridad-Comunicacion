@@ -1,54 +1,26 @@
-# Laboratorio de seguridad Nginx
+# Mercado Local ? Laboratorio de seguridad
 
-Demostración de hardening HTTP y limitación de tráfico en capa 7. Incluye un panel web con pruebas reales sobre el propio servidor: GET, POST restringido y una ráfaga acotada de 40 solicitudes. No requiere backend adicional, base de datos, paquetes JavaScript ni servicios externos.
+Aplicaci?n local con inicio de sesi?n, inventario ficticio y centro de actividad. Utiliza Nginx, Python, SQLite y Docker Compose.
 
-## Ejecutar en Windows
+## Iniciar
 
-Requisitos: Docker Desktop en ejecución con contenedores Linux, Docker Compose y el puerto 80 libre.
-
-Desde PowerShell, en la carpeta que contiene `docker-compose.yml`:
+Con Docker Desktop abierto y el puerto 80 libre:
 
 ```powershell
 cd 'C:\Users\isamu\Desktop\seguridad\sistemas-Seguridad-Comunicacion'
 docker compose up -d
-docker compose ps
 ```
 
-Abrir **http://localhost**. La primera ejecución descarga las imágenes. Si el laboratorio ya estaba encendido, recargar con **Ctrl + F5** para ver el nuevo panel. Los archivos de `html/` se montan directamente; no es necesario construir imágenes ni instalar dependencias. Abrir `index.html` como archivo no ejecuta las pruebas de Nginx.
+Abre http://localhost e inicia sesi?n con `admin` y `demo1234`. Para detenerlo: `docker compose down`.
 
-## Demostración en unos 5 minutos
+## Demostraci?n
 
-1. Mostrar el diagrama: el navegador envía HTTP y Nginx decide si permite la solicitud. Explicar que el trabajo principal está en `nginx.conf`; el panel permite observarlo.
-2. Pulsar **Probar consulta GET**. Mostrar `200 OK` y bajar a las cabeceras recibidas: `Server: nginx` sin versión, restricciones de marcos, tipos de contenido y recursos permitidos.
-3. Pulsar **Probar bloqueo de POST**. Mostrar `403 Forbidden`: en esta ruta solo están permitidos GET y HEAD. Se envía un POST vacío, sin cambiar datos.
-4. Pulsar **Enviar ráfaga de 40**. Mostrar la proporción real de respuestas 200/503, el registro de solicitudes y la página de rechazo devuelta por Nginx. Explicar `rate=5r/s`, `burst=10` y `nodelay`: tolera un pico breve, luego rechaza el exceso sin introducir una cola de espera.
-5. Aclarar que un 503 aquí es un rechazo del laboratorio. Confirmar su causa en los registros si se necesita distinguir límite de peticiones de límite de conexiones. Las cantidades y los tiempos pueden variar entre ejecuciones.
+El acceso correcto abre el inventario. La secci?n **Actividad** muestra las ?ltimas 500 solicitudes registradas por Nginx y sus c?digos, sin incluir las consultas autom?ticas al propio centro de actividad. Se actualiza cada cinco segundos. El bot?n de tr?fico env?a 1.000 solicitudes a una ruta local protegida por Nginx.
 
-El panel espera tres segundos entre pruebas para permitir que se recupere el límite. Las pestañas y usuarios que Nginx vea con la misma IP comparten la cuota. Los navegadores regulan sus conexiones: si una ráfaga no produce 503, revisar el ritmo observado y usar Apache Benchmark como prueba complementaria.
+Para observar el l?mite de cuenta, cierra sesi?n y prueba cinco veces una contrase?a incorrecta. Las primeras respuestas son 401 y desde el quinto intento se responde 429 durante 30 segundos para ese nombre de usuario. Luego puedes iniciar sesi?n y revisar los registros. El contador de intentos se mantiene en memoria y se reinicia al reiniciar la aplicaci?n.
 
-## Comandos complementarios
+Nginx limita la tasa por IP a 5 solicitudes por segundo con una r?faga de 10. El exceso recibe 503. El centro de actividad lee el registro de Nginx, por lo que tambi?n muestra solicitudes rechazadas antes de llegar a Python. La prueba de tr?fico puede afectar temporalmente otras solicitudes de la misma IP; espera unos segundos si aparece un 503.
 
-```powershell
-# Validar la configuración y consultar rechazos recientes
-docker exec servidor-defensa nginx -t
-docker logs --tail 30 servidor-defensa
+El inventario requiere una cookie de sesi?n firmada. Las consultas de login usan par?metros SQL. La cuenta y los datos son ficticios y se recrean en almacenamiento temporal. El registro de acceso persiste en un volumen Docker y contiene ruta, m?todo, IP, c?digo y tiempo, sin cuerpos ni contrase?as. El monitoreo muestra una ventana de 500 registros, no estad?sticas hist?ricas completas.
 
-# Prueba de carga desde el cliente del laboratorio (opcional)
-docker exec cliente-atacante apk add --no-cache apache2-utils curl
-docker exec cliente-atacante ab -n 1000 -c 50 http://172.28.0.10/
-
-# Detener y retirar los contenedores del laboratorio
-docker compose down
-```
-
-`apache2-utils` se instala de nuevo si se recrea el contenedor cliente. Los resultados de `ab` incluyen respuestas de rechazo: `Non-2xx responses` no significa por sí solo que el servidor se haya caído.
-
-## Archivos y alcance
-
-- `nginx.conf`: cabeceras, métodos, tasa de 5 peticiones/s por IP con ráfaga de 10, límite de conexiones y tiempos de espera.
-- `docker-compose.yml`: servidor, cliente y red del laboratorio; servidor limitado a 128 MB y 0.50 CPU.
-- `html/index.html`, `html/panel.css`, `html/panel.js`: panel sin dependencias; consulta el mismo origen, sin destinos configurables. Muestra respuestas reales, no telemetría global ni resultados simulados. El script externo respeta la CSP existente.
-- `html/custom_503.html`: respuesta de rechazo compartida por los límites configurados.
-- `INFORME_Y_GUIA_DE_SUSTENTACION.md` y `.pdf`: informe académico original. Sus cifras de una ejecución previa no son valores garantizados; la ruta de arranque antigua debe sustituirse por la de tu equipo. La página 503 se ha actualizado, por lo que su tamaño también cambió.
-
-La demostración cubre controles HTTP locales y las medidas documentadas con la referencia OWASP A05:2021. La prueba del navegador no valida resistencia a DDoS volumétrico, Slowloris, uso de CPU/RAM ni todos los riesgos de OWASP. El laboratorio usa HTTP sin TLS. El puerto `80:80` se publica en las interfaces del equipo; la red bridge separa los contenedores, pero el sitio no queda limitado a localhost.
+El proyecto es local y did?ctico: cuenta con credenciales de muestra, contrase?as de ejemplo y limitaci?n en memoria. No est? preparado para producci?n.

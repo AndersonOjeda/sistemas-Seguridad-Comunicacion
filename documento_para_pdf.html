@@ -1,635 +1,487 @@
 <!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Informe y Guía de Sustentación - Nginx Hardening y DoS Capa 7</title>
-<style>
-    @page {
-        size: A4;
-        margin: 20mm 15mm 20mm 15mm;
-        @bottom-right {
-            content: counter(page);
-        }
-    }
-    
-    body {
-        font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
-        font-size: 10.5pt;
-        line-height: 1.55;
-        color: #1e293b;
-        background: #ffffff;
-        margin: 0;
-        padding: 0;
-    }
-
-    h1, h2, h3, h4, h5 {
-        color: #0f172a;
-        font-weight: 700;
-        page-break-after: avoid;
-    }
-
-    .cover-page {
-        page-break-after: always;
-        text-align: center;
-        padding-top: 50px;
-    }
-
-    .univ-title {
-        font-size: 14pt;
-        letter-spacing: 2px;
-        color: #64748b;
-        text-transform: uppercase;
-        margin-bottom: 25px;
-        font-weight: 600;
-    }
-
-    .doc-main-title {
-        font-size: 22pt;
-        line-height: 1.25;
-        color: #0284c7;
-        margin-bottom: 12px;
-        font-weight: 800;
-    }
-
-    .doc-subtitle {
-        font-size: 13pt;
-        color: #334155;
-        margin-bottom: 35px;
-        font-weight: 500;
-    }
-
-    .badge-bar {
-        margin-bottom: 40px;
-    }
-
-    .badge {
-        display: inline-block;
-        padding: 6px 14px;
-        border-radius: 9999px;
-        font-size: 8.5pt;
-        font-weight: bold;
-        text-transform: uppercase;
-        margin: 0 4px;
-    }
-
-    .badge-blue { background: #e0f2fe; color: #0369a1; }
-    .badge-green { background: #dcfce7; color: #15803d; }
-    .badge-purple { background: #f3e8ff; color: #7e22ce; }
-
-    .metadata-card {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 22px;
-        margin: 0 auto;
-        max-width: 520px;
-        text-align: left;
-    }
-
-    .metadata-card table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .metadata-card td {
-        padding: 6px 4px;
-        font-size: 9.5pt;
-    }
-
-    .metadata-label {
-        font-weight: bold;
-        color: #475569;
-        width: 38%;
-    }
-
-    .metadata-val {
-        color: #0f172a;
-    }
-
-    h1 {
-        font-size: 16pt;
-        border-bottom: 2px solid #0284c7;
-        padding-bottom: 5px;
-        margin-top: 30px;
-        margin-bottom: 14px;
-    }
-
-    h2 {
-        font-size: 13pt;
-        color: #0369a1;
-        margin-top: 22px;
-        margin-bottom: 10px;
-    }
-
-    h3 {
-        font-size: 11pt;
-        color: #0f172a;
-        margin-top: 16px;
-        margin-bottom: 8px;
-    }
-
-    p {
-        margin: 0 0 10px 0;
-        text-align: justify;
-    }
-
-    ul, ol {
-        margin: 0 0 12px 20px;
-        padding: 0;
-    }
-
-    li {
-        margin-bottom: 5px;
-    }
-
-    pre {
-        background: #0f172a;
-        color: #f8fafc;
-        padding: 12px;
-        border-radius: 6px;
-        font-family: 'Consolas', 'Courier New', monospace;
-        font-size: 8.5pt;
-        line-height: 1.4;
-        overflow-x: auto;
-        page-break-inside: avoid;
-        margin: 10px 0 14px 0;
-        border: 1px solid #1e293b;
-    }
-
-    code {
-        font-family: 'Consolas', monospace;
-        font-size: 9pt;
-        background: #f1f5f9;
-        color: #be123c;
-        padding: 2px 5px;
-        border-radius: 4px;
-    }
-
-    pre code {
-        background: none;
-        color: inherit;
-        padding: 0;
-    }
-
-    table.data-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin: 14px 0 18px 0;
-        font-size: 9pt;
-        page-break-inside: avoid;
-    }
-
-    table.data-table th {
-        background: #0284c7;
-        color: #ffffff;
-        text-align: left;
-        padding: 8px 10px;
-        font-weight: 600;
-        border: 1px solid #0284c7;
-    }
-
-    table.data-table td {
-        padding: 7px 10px;
-        border: 1px solid #cbd5e1;
-        vertical-align: top;
-    }
-
-    table.data-table tr:nth-child(even) {
-        background: #f8fafc;
-    }
-
-    .callout {
-        border-left: 4px solid #0284c7;
-        background: #f0f9ff;
-        padding: 10px 14px;
-        border-radius: 0 6px 6px 0;
-        margin: 12px 0 16px 0;
-        font-size: 9.5pt;
-        page-break-inside: avoid;
-    }
-
-    .callout-success {
-        border-left-color: #10b981;
-        background: #ecfdf5;
-    }
-
-    .callout-warning {
-        border-left-color: #f59e0b;
-        background: #fffbeb;
-    }
-
-    .quote-box {
-        background: #f8fafc;
-        border-left: 3px solid #64748b;
-        padding: 10px 14px;
-        margin: 10px 0 14px 0;
-        font-style: italic;
-        color: #334155;
-        page-break-inside: avoid;
-    }
-
-    .slide-card {
-        border: 1px solid #cbd5e1;
-        border-radius: 6px;
-        padding: 12px 14px;
-        margin-bottom: 12px;
-        background: #ffffff;
-        page-break-inside: avoid;
-    }
-
-    .slide-header {
-        font-weight: bold;
-        color: #0369a1;
-        font-size: 10.5pt;
-        margin-bottom: 6px;
-        border-bottom: 1px solid #e2e8f0;
-        padding-bottom: 4px;
-    }
-
-    .page-break {
-        page-break-before: always;
-    }
-</style>
-</head>
-<body>
-
-<!-- PORTADA -->
-<div class="cover-page">
-    <div class="univ-title">Sistemas de Comunicación y Seguridad Informática &bull; 8vo Semestre</div>
-    <div class="doc-main-title">Bastionado Integral (Hardening) y Defensa Activa en Capa 7 de Servidores Nginx con Docker</div>
-    <div class="doc-subtitle">Mitigación Determinista de OWASP A05:2021 y Ataques DoS HTTP Flood</div>
-    
-    <div class="badge-bar">
-        <span class="badge badge-blue">Capa 7 OSI</span>
-        <span class="badge badge-green">Leaky Bucket SHM</span>
-        <span class="badge badge-purple">Docker Isolation</span>
-    </div>
-
-    <div class="metadata-card">
-        <table>
-            <tr>
-                <td class="metadata-label">Asignatura:</td>
-                <td class="metadata-val">Sistemas de Comunicación y Seguridad Informática</td>
-            </tr>
-            <tr>
-                <td class="metadata-label">Unidades Integradas:</td>
-                <td class="metadata-val">Semana 5 (Hardening & OWASP) + Semana 10 (Defensa Red L7)</td>
-            </tr>
-            <tr>
-                <td class="metadata-label">Nivel de Estudio:</td>
-                <td class="metadata-val">8vo Semestre — Ingeniería</td>
-            </tr>
-            <tr>
-                <td class="metadata-label">Equipo de Trabajo:</td>
-                <td class="metadata-val">3 Integrantes (Expositores 1 a 3)</td>
-            </tr>
-            <tr>
-                <td class="metadata-label">Entorno Técnico:</td>
-                <td class="metadata-val">Nginx Alpine, Docker Bridge, Apache Benchmark, PowerShell</td>
-            </tr>
-            <tr>
-                <td class="metadata-label">Estado de Validación:</td>
-                <td class="metadata-val"><strong>Aprobado y Verificado Experimentalmente</strong></td>
-            </tr>
-        </table>
-    </div>
-
-    <div style="margin-top: 50px; color: #64748b; font-size: 9pt;">
-        Documento y Manual Oficial de Sustentación para Evaluación Académica
-    </div>
-</div>
-
-<!-- RESUMEN EJECUTIVO -->
-<h1>1. Resumen Ejecutivo (Abstract)</h1>
-<p>
-El presente informe documenta el diseño, despliegue y análisis forense de una solución de <strong>Bastionado (Hardening)</strong> y <strong>Defensa Activa en Capa 7 (Aplicación)</strong> para servidores web Nginx contenedorizados en Docker. La arquitectura mitiga deterministamente dos vectores críticos de ataque contemporáneos:
-</p>
-<ol>
-    <li><strong>Exposición de Metadatos y Vulnerabilidades del Cliente (OWASP A05:2021 - Security Misconfiguration):</strong> Supresión de versión del servidor para neutralizar el <em>Banner Grabbing</em>, restricción de verbos HTTP (<code>GET</code>/<code>HEAD</code>) e inyección de encabezados HTTP mandatorios (<code>X-Frame-Options</code>, <code>X-Content-Type-Options</code>, <code>Content-Security-Policy</code>, <code>X-XSS-Protection: 0</code>, <code>Referrer-Policy</code>, <code>Permissions-Policy</code>) que mitigan ataques de <em>Clickjacking</em>, <em>XSS</em> y <em>MIME-Sniffing</em>.</li>
-    <li><strong>Denegación de Servicio en Capa de Aplicación (Capa 7 HTTP Flood y Slowloris):</strong> Configuración de zonas de memoria compartida (Shared Memory Zones de 10 MB) con rastreo de IP binaria (<code>$binary_remote_addr</code>): algoritmo <strong>Leaky Bucket</strong> con tasa nominal de <strong>5 r/s</strong> y ráfaga <code>burst=10 nodelay</code>, límite de <strong>20 conexiones TCP concurrentes por IP</strong> y timeouts estrictos anti-Slowloris (<code>10s</code>).</li>
-</ol>
-<p>
-Bajo una prueba de estrés masiva con <strong>Apache Benchmark (1000 solicitudes, concurrencia 50)</strong>, el sistema demostró un comportamiento determinista: en <strong>4.100 segundos</strong> admitió exactamente <strong>31 peticiones legítimas (200 OK)</strong> y rechazó <strong>969 solicitudes excedentes (503 Service Unavailable, 96.9%)</strong>, además de bloquear métodos no permitidos (<code>POST</code> &rarr; <code>403</code>) manteniendo el contenedor estable bajo límites de <strong>128 MB RAM</strong> y <strong>0.50 CPU</strong>.
-</p>
-
-<!-- FASE 1 -->
-<h1>2. Fase 1: Contextualización y Escenario de Amenaza</h1>
-<p>
-Los servidores web perimetrales constituyen la frontera de exposición directa hacia redes inseguras. Los firewalls convencionales de paquetes (Capas 3 y 4 del modelo OSI) resultan inoperantes frente a ataques en Capa 7, ya que el tráfico se encapsula sobre conexiones TCP formalmente completadas (Three-Way Handshake legítimo).
-</p>
-
-<div class="callout callout-warning">
-    <strong>Vectores de Ataque Primarios:</strong>
-    <ul>
-        <li><strong>Banner Grabbing y Fingerprinting:</strong> Escaneo automatizado mediante <code>curl -I</code>, Nmap o Shodan para extraer cadenas del tipo <code>Server: nginx/1.25.3</code> y correlacionar vulnerabilidades conocidas en la base NVD/CVE.</li>
-        <li><strong>Ataques en el Navegador del Cliente (OWASP A05):</strong> Explotación de la falta de cabeceras restrictivas para incrustar el sitio en marcos invisibles (Clickjacking) o engañar al intérprete MIME del navegador (MIME-Sniffing).</li>
-        <li><strong>Inundación HTTP (HTTP Flood DoS):</strong> Saturación deliberada de los descriptores de archivo (file descriptors) y procesos worker del servidor mediante solicitudes concurrentes masivas.</li>
-    </ul>
-</div>
-
-<!-- FASE 2 -->
-<h1>3. Fase 2: Fundamentación Teórica</h1>
-
-<h2>3.1 OWASP Top 10 — A05:2021 (Security Misconfiguration)</h2>
-<ul>
-    <li><strong>Supresión de Banner:</strong> La directiva <code>server_tokens off;</code> elimina la subversión de Nginx en los encabezados HTTP y en las páginas de error estándar generadas por el motor web.</li>
-    <li><strong>Clickjacking (UI Redressing):</strong> <code>X-Frame-Options: SAMEORIGIN</code> y <code>frame-ancestors 'self'</code> (en CSP) ordenan al navegador no permitir que el sitio sea incrustado en etiquetas <code>&lt;iframe&gt;</code> de otros dominios.</li>
-    <li><strong>MIME-Sniffing (Type Confusion):</strong> <code>X-Content-Type-Options: nosniff</code> obliga al cliente a ceñirse al <code>Content-Type</code> declarado por el servidor, impidiendo que archivos no ejecutables sean interpretados como scripts JavaScript.</li>
-    <li><strong>Content Security Policy y cabeceras modernas:</strong> <code>Content-Security-Policy</code> restringe los orígenes de carga, <code>X-XSS-Protection: 0</code> sigue la guía vigente de OWASP junto con CSP, y <code>Permissions-Policy</code> bloquea APIs sensibles del navegador.</li>
-    <li><strong>Directiva <code>always</code>:</strong> Garantiza que Nginx inyecte las cabeceras de seguridad incluso cuando las respuestas devuelven códigos de error (4xx y 5xx).</li>
-    <li><strong>Restricción de métodos y Anti-Slowloris:</strong> <code>limit_except GET</code> bloquea verbos innecesarios (<code>POST</code>, <code>PUT</code>, <code>DELETE</code>), mientras <code>limit_conn zona_conn 20;</code> y timeouts de <code>10s</code> evitan el agotamiento de sockets por conexiones lentas.</li>
-</ul>
-
-<h2>3.2 Algoritmo de Defensa Activa: Leaky Bucket en Memoria Compartida</h2>
-<p>
-El módulo <code>ngx_http_limit_req_module</code> modela el consumo de recursos como un cubo con una fuga constante.
-</p>
-<ul>
-    <li><strong>Optimización con <code>$binary_remote_addr</code>:</strong> En lugar de almacenar cadenas de texto ASCII de 15 bytes, Nginx almacena la dirección IPv4 en representación binaria de <strong>4 bytes</strong>. En una zona de <strong>10 Megabytes (SHM)</strong>, esto permite monitorear de forma concurrente el estado de más de <strong>160,000 direcciones IP</strong> simultáneas en memoria RAM.</li>
-    <li><strong>Tasa nominal (<code>rate=5r/s</code>):</strong> Fija el ritmo de atención a 1 petición cada 200 ms.</li>
-    <li><strong>Búfer de Tolerancia (<code>burst=10</code>):</strong> Permite absorber ráfagas legítimas de tráfico transitorio.</li>
-    <li><strong>Política Fail-Fast (<code>nodelay</code>):</strong> Atiende los slots disponibles del burst inmediatamente y <em>descarta al instante</em> toda petición excedente con código <code>503 Service Unavailable</code> sin encolamientos lentos que bloqueen sockets en el kernel.</li>
-</ul>
-
-<div class="page-break"></div>
-
-<!-- FASE 3 Y 4 -->
-<h1>4. Fase 3 y 4: Arquitectura e Implementación del Stack</h1>
-
-<h2>4.1 Arquitectura de Red Aislada (Docker Bridge)</h2>
-<p>
-Para aislar las mediciones y descartar latencias de redes externas, se desplegó la subred <code>red-defensa (172.28.0.0/16)</code>:
-</p>
-<ul>
-    <li><strong>Servidor Defensor (<code>172.28.0.10</code>):</strong> Nginx Alpine con montaje de volúmenes en solo lectura (<code>:ro</code>).</li>
-    <li><strong>Cliente Atacante (<code>172.28.0.20</code>):</strong> Contenedor Alpine instrumentalizado con <code>apache2-utils</code> (Apache Benchmark) y <code>curl</code>.</li>
-</ul>
-
-<h2>4.2 Archivo de Configuración Maestro: <code>nginx.conf</code></h2>
-<pre><code>events {
-    worker_connections 1024;
-}
-
-http {
-    include       mime.types;
-    default_type  application/octet-stream;
-
-    # --- MITIGACIÓN OWASP A05:2021 (HARDENING) ---
-    server_tokens off;
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self';" always;
-    add_header X-XSS-Protection "0" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-
-    # --- PROTECCIÓN ANTI-SLOWLORIS Y TIMEOUTS ---
-    client_header_timeout 10s;
-    client_body_timeout   10s;
-    send_timeout          10s;
-    keepalive_timeout     15s;
-    reset_timedout_connection on;
-    client_max_body_size  1m;
-    limit_conn_zone $binary_remote_addr zone=zona_conn:10m;
-    limit_conn_status 503;
-
-    # --- DEFENSA ACTIVA EN CAPA 7 (RATE LIMITING) ---
-    limit_req_zone $binary_remote_addr zone=zona_limite:10m rate=5r/s;
-    limit_req_status 503;
-
-    server {
-        listen 80;
-        server_name localhost;
-
-        location / {
-            limit_except GET {
-                deny all;
-            }
-            limit_conn zona_conn 20;
-            limit_req zone=zona_limite burst=10 nodelay;
-            root   /usr/share/nginx/html;
-            index  index.html index.htm;
-        }
-
-        error_page 503 /custom_503.html;
-        location = /custom_503.html {
-            root /usr/share/nginx/html;
-            internal;
-        }
-    }
-}</code></pre>
-
-<!-- FASE 5 -->
-<h1>5. Fase 5: Análisis Forense de Resultados Experimentales</h1>
-
-<h2>5.1 Auditoría Perimetral de Cabeceras y Métodos con <code>curl.exe</code></h2>
-<pre><code>HTTP/1.1 200 OK
-Server: nginx
-Date: Tue, 10 Nov 2026 18:28:39 GMT
-Content-Type: text/html
-Content-Length: 1203
-Last-Modified: Tue, 10 Nov 2026 04:54:42 GMT
-Connection: keep-alive
-ETag: "6af2a392-4b3"
-X-Frame-Options: SAMEORIGIN
-X-Content-Type-Options: nosniff
-Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self';
-X-XSS-Protection: 0
-Referrer-Policy: strict-origin-when-cross-origin
-Permissions-Policy: geolocation=(), microphone=(), camera=()
-
-# Verificación de restricción de método HTTP (POST):
-POST status: 403</code></pre>
-<p>
-<strong>Conclusión de Auditoría:</strong> El banner sólo reporta <code>nginx</code> (versión exacta suprimida). Las cabeceras de protección (incluida <code>Content-Security-Policy</code> y <code>Permissions-Policy</code>) están activas y las peticiones <code>POST</code> son rechazadas con <code>403 Forbidden</code>.
-</p>
-
-<h2>5.2 Prueba de Estrés DoS con Apache Benchmark (<code>ab -n 1000 -c 50</code>)</h2>
-<pre><code>Document Length:        1203 bytes
-Concurrency Level:      50
-Time taken for tests:   4.100 seconds
-Complete requests:      1000
-Failed requests:        969 (Non-2xx responses: 969)
-Requests per second:    243.88 [#/sec] (mean)
-Time per request:       4.100 [ms] (across all concurrent requests)</code></pre>
-
-<div class="callout callout-success">
-    <strong>Deducción Matemática Forense: ¿Por qué 31 OK y 969 Bloqueadas?</strong>
-    <ul>
-        <li><strong>1 Petición Base:</strong> Concedida al instante <i>t</i> = 0 según la tasa nominal (<code>rate=5r/s</code>).</li>
-        <li><strong>10 Peticiones en Burst:</strong> Absorbidas de inmediato en los 10 slots del búfer (<code>burst=10 nodelay</code>).</li>
-        <li><strong>20 Peticiones por Drenaje:</strong> Durante los <strong>4.100 s</strong> de la prueba (con el contenedor acotado a <code>0.50 CPU</code>), el cubo drena &lfloor;5 r/s &times; 4.100 s&rfloor; = 20 tokens adicionales.</li>
-        <li><strong>Total Aceptadas:</strong> 1 + 10 + 20 = <strong>31 peticiones (200 OK)</strong>.</li>
-        <li><strong>969 Peticiones Rechazadas:</strong> Descartadas en memoria compartida (SHM) con código <strong>503</strong> (<code>custom_503.html</code> de 749 bytes), verificadas en <code>docker logs</code> sin saturar el sistema.</li>
-    </ul>
-</div>
-
-<table class="data-table">
-    <thead>
-        <tr>
-            <th>Parámetro Comparativo</th>
-            <th>Backend / Servidor Sin Rate Limiting</th>
-            <th>Servidor Hardened (Defensa Activa Nginx)</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td><strong>Código HTTP ante Flood</strong></td>
-            <td>100% del tráfico golpea al backend (riesgo de 504/502)</td>
-            <td><strong>503 Service Unavailable</strong> controlado (96.9% frenado)</td>
-        </tr>
-        <tr>
-            <td><strong>Exposición del Servicio</strong></td>
-            <td>1000 peticiones llegan al aplicativo/BD</td>
-            <td><strong>Solo 31 peticiones (3.1%)</strong> pasan en 4.100 s</td>
-        </tr>
-        <tr>
-            <td><strong>Protección Anti-Slowloris</strong></td>
-            <td>Vulnerable a agotamiento de sockets</td>
-            <td><strong><code>limit_conn 20</code></strong> + timeouts de 10 s</td>
-        </tr>
-        <tr>
-            <td><strong>Consumo de CPU / RAM</strong></td>
-            <td>Escala con el backend y riesgo de OOM</td>
-            <td>Acotado a <strong>128 MB RAM / 0.50 CPU</strong> y evaluación <i>O</i>(1) en SHM</td>
-        </tr>
-    </tbody>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Guía para exponer el laboratorio Nginx</title><style>
+@page { size: A4; margin: 18mm 17mm; @bottom-right { content: counter(page); } }
+* { box-sizing: border-box; }
+body { margin: 35px auto; max-width: 900px; padding: 35px; color: #16384d; background: #eef4f7; font: 15px/1.65 'Segoe UI', sans-serif; }
+article { background: white; padding: 35px; }
+h1 { font-size: 32px; line-height: 1.18; }
+h2 { margin-top: 30px; font-size: 23px; }
+h3 { margin-top: 26px; font-size: 19px; }
+h1,h2,h3 { break-after: avoid; }
+p,li { orphans: 3; widows: 3; }
+blockquote { background: #eef4f7; border-left: 3px solid #087b7e; margin: 15px 0; padding: 12px 18px; }
+blockquote p { margin: 0; }
+code,pre { font-family: Consolas, monospace; font-size: .86em; }
+pre { padding: 12px; background: #eef4f7; white-space: pre-wrap; overflow-wrap: anywhere; }
+table { width: 100%; border-collapse: collapse; font-size: .88em; margin: 16px 0; }
+th,td { text-align: left; vertical-align: top; padding: 8px; border-bottom: 1px solid #cbdbe4; }
+th { background: #e2edf2; }
+tr,blockquote,pre { break-inside: avoid; }
+a { color: #087b7e; overflow-wrap: anywhere; }
+@media print { body { margin: 0; max-width: none; padding: 0; background: white; font-size: 10pt; } article { padding: 0; } .slide-start { break-before: page; } }
+</style></head><body><article><h1>Laboratorio de seguridad para un servidor web Nginx</h1>
+<h2>Informe y guía para la exposición</h2>
+<p><strong>Asignatura:</strong> Sistemas de Comunicación y Seguridad Informática<br>
+<strong>Versión:</strong> 10 de noviembre de 2026, con el panel interactivo<br>
+<strong>Tema:</strong> Hardening y control de solicitudes HTTP en capa 7<br>
+<strong>Duración sugerida:</strong> 8 a 10 minutos, incluyendo la demostración</p>
+<p>Este documento contiene el texto para diez diapositivas y un guion oral. Copia en tus diapositivas solo el bloque <strong>Texto para la diapositiva</strong>. El bloque <strong>Qué decir</strong> te ayuda a preparar la explicación. El bloque <strong>Qué mostrar</strong> indica el apoyo visual o la acción en el panel.</p>
+<h2>1. Contexto del proyecto</h2>
+<p>Al abrir una página, el navegador envía una solicitud HTTP a un servidor. El servidor recibe la petición y decide cómo responder. Esa comunicación también puede revelar información innecesaria o recibir demasiadas solicitudes en poco tiempo.</p>
+<p>En este laboratorio configuramos Nginx para aplicar reglas de seguridad. Nginx oculta su número de versión, envía cabeceras de seguridad, restringe los métodos permitidos y limita el tráfico por dirección IP. Docker permite ejecutar el entorno de forma reproducible.</p>
+<p>La página inicial se convirtió en un panel interactivo. Ahora podemos enviar solicitudes desde el navegador y observar las respuestas del servidor. La protección está en Nginx. El panel permite probarla y explicarla con evidencia visible.</p>
+<p><strong>Objetivo general:</strong> demostrar, en un entorno local, cómo una configuración de Nginx reduce información expuesta y controla solicitudes HTTP mediante pruebas observables desde un panel web.</p>
+<h3>Conceptos que conviene entender</h3>
+<table>
+<thead>
+<tr>
+<th>Concepto</th>
+<th>Explicación sencilla</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nginx</td>
+<td>El servidor web que recibe las peticiones y aplica las reglas.</td>
+</tr>
+<tr>
+<td>HTTP</td>
+<td>La forma de comunicación que usamos entre navegador y servidor.</td>
+</tr>
+<tr>
+<td>Hardening o bastionado</td>
+<td>Configurar un sistema para reducir riesgos y limitar lo permitido.</td>
+</tr>
+<tr>
+<td>Capa 7</td>
+<td>La capa de aplicación del modelo OSI. En este proyecto trabajamos con HTTP.</td>
+</tr>
+<tr>
+<td>Disponibilidad</td>
+<td>Que un servicio pueda atender a sus usuarios cuando lo necesitan.</td>
+</tr>
+<tr>
+<td>Rate limiting</td>
+<td>Limitar el ritmo de solicitudes que se admite para un cliente.</td>
+</tr>
+<tr>
+<td>Contenedor</td>
+<td>Un entorno separado donde ejecutamos un componente del laboratorio.</td>
+</tr>
+</tbody>
 </table>
-
-<div class="page-break"></div>
-
-<!-- 10 DIAPOSITIVAS -->
-<h1>6. Diseño Estructurado de 10 Diapositivas para la Presentación</h1>
-
-<div class="slide-card">
-    <div class="slide-header">Diapositiva 1: Portada y Presentación del Proyecto</div>
-    <p><strong>Contenido:</strong> Título del proyecto, asignatura (Sistemas de Comunicación y Seguridad Informática), nombres de los 3 integrantes, logos institucionales de Nginx, Docker y OWASP.</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Diapositiva 2: Planteamiento del Problema — Escenario de Amenaza</div>
-    <p><strong>Contenido:</strong> Vulnerabilidad de la Capa 7 frente a firewalls L3/L4. Vectores de Banner Grabbing (identificación de CVEs) y ataque de agotamiento de recursos (HTTP Flood).</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Diapositiva 3: Fundamentación OWASP A05:2021 (Security Misconfiguration)</div>
-    <p><strong>Contenido:</strong> Fuga de metadatos en cabeceras. Vectores en el cliente: Clickjacking (<code>X-Frame-Options: SAMEORIGIN</code> y CSP <code>frame-ancestors 'self'</code>), MIME-Sniffing (<code>X-Content-Type-Options: nosniff</code>), <code>Content-Security-Policy</code> y restricción de verbos (<code>limit_except GET</code>).</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Diapositiva 4: Fundamentación Teórica — Defensa Activa y Tríada CIA</div>
-    <p><strong>Contenido:</strong> Disponibilidad como pilar fundamental. Algoritmo Leaky Bucket (<code>5 r/s</code>, <code>burst=10</code>, <code>nodelay</code>), límite de conexiones concurrentes (<code>limit_conn 20</code>) y timeouts de <code>10s</code> anti-Slowloris.</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Diapositiva 5: Arquitectura del Laboratorio (Stack Técnico en Docker)</div>
-    <p><strong>Contenido:</strong> Diagrama de red Docker con la subred bridge <code>red-defensa (172.28.0.0/16)</code>. Nodo defensor Nginx Alpine (172.28.0.10, volúmenes <code>:ro</code>, límite 128 MB / 0.50 CPU) y nodo atacante Alpine con Apache Benchmark (172.28.0.20).</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Diapositiva 6: Análisis de Configuración Nginx (<code>nginx.conf</code>)</div>
-    <p><strong>Contenido:</strong> Explicación de directivas clave: <code>limit_req_zone $binary_remote_addr zone=zona_limite:10m rate=5r/s</code> (4 bytes por IP), <code>limit_conn</code>, timeouts y directiva <code>always</code>.</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Diapositiva 7: Auditoría Práctica de Cabeceras y Métodos con cURL</div>
-    <p><strong>Contenido:</strong> Ejecución de <code>curl.exe -I http://localhost</code> y prueba <code>POST</code> (&rarr; <code>403</code>). Demostración de versión oculta y presencia de encabezados de seguridad.</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Diapositiva 8: Prueba de Carga y Simulación de Ataque DoS L7</div>
-    <p><strong>Contenido:</strong> Parámetros del ataque con <code>ab -n 1000 -c 50 http://172.28.0.10/</code>. Simulación de 50 usuarios concurrentes en ráfaga.</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Diapositiva 9: Análisis Forense de Resultados (31 OK vs 969 Bloqueadas)</div>
-    <p><strong>Contenido:</strong> Justificación matemática de las 31 peticiones <code>200 OK</code> y 969 bloqueadas con <code>503</code> (<code>96.9%</code>) en 4.100 segundos bajo evaluación <i>O</i>(1) en memoria compartida.</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Diapositiva 10: Conclusiones y Buenas Prácticas de Ingeniería</div>
-    <p><strong>Contenido:</strong> Importancia del bastionado perimetral en Capa 7, uso eficiente de memoria compartida en microservicios e integración en pipelines CI/CD.</p>
-</div>
-
-<!-- GUION SUSTENTACION -->
-<h1>7. Guion de Sustentación Formal para los 3 Integrantes</h1>
-
-<div class="quote-box">
-    <strong>Expositor 1: Introducción, Escenario de Amenaza y OWASP A05:2021 (Diapositivas 1 a 3)</strong><br>
-    "Estimado docente y compañeros, buenas tardes. Hoy presentamos nuestro proyecto de fin de semestre: <strong>Bastionado Integral y Defensa Activa en Capa 7 sobre Nginx con Docker</strong>.<br><br>
-    Al analizar la seguridad en el modelo OSI, observamos que las organizaciones blindan las Capas 3 y 4 con firewalls de paquetes, pero dejan desprotegida la <strong>Capa 7 (Capa de Aplicación)</strong>. Un atacante no necesita saturar el ancho de banda con tráfico UDP masivo; puede establecer conexiones TCP legales mediante el Three-Way Handshake y bombardear el servidor con peticiones HTTP legítimas que agotan descriptores de archivo, buffers de socket y workers.<br><br>
-    A su vez, mediante <strong>Banner Grabbing</strong>, herramientas automatizadas escanean el encabezado <code>Server</code> para correlacionar versiones exactas con vulnerabilidades CVE conocidas. En este proyecto atacamos directamente la categoría <strong>OWASP A05:2021 (Security Misconfiguration)</strong> suprimiendo la versión con <code>server_tokens off</code>, restringiendo los verbos HTTP a <code>GET</code>/<code>HEAD</code> e inyectando cabeceras mandatorias con la bandera <code>always</code>: <code>X-Frame-Options: SAMEORIGIN</code> para neutralizar el <strong>Clickjacking</strong>, <code>X-Content-Type-Options: nosniff</code> para erradicar el <strong>MIME-Sniffing</strong>, y <code>Content-Security-Policy</code> junto con <code>Permissions-Policy</code>."
-</div>
-
-<div class="quote-box">
-    <strong>Expositor 2: Fundamentación Teórica, Rate Limiting y Arquitectura Docker (Diapositivas 4 a 6)</strong><br>
-    "Para garantizar el pilar de <strong>Disponibilidad en la Tríada CIA</strong>, implementamos una estrategia de Defensa Activa fundamentada en el algoritmo <strong>Leaky Bucket (Cubo Perforado)</strong> mediante <code>ngx_http_limit_req_module</code> y protección anti-Slowloris con <code>ngx_http_limit_conn_module</code>.<br><br>
-    Nuestra directiva central es <code>limit_req_zone $binary_remote_addr zone=zona_limite:10m rate=5r/s;</code>. Destacamos el uso de <code>$binary_remote_addr</code>: representa la dirección IP en formato de red binario de <strong>4 bytes</strong> para IPv4, a diferencia de los 15 bytes que consume una cadena de texto. En un segmento de <strong>10 MB de memoria compartida (SHM)</strong>, Nginx tiene la capacidad de monitorear más de <strong>160,000 direcciones IP simultáneas</strong> en tiempo real.<br><br>
-    Fijamos una tasa de fuga de 5 r/s (1 solicitud cada 200 ms) combinada con <code>burst=10 nodelay</code>, un tope de <strong>20 conexiones TCP simultáneas por IP</strong> (<code>limit_conn</code>) y timeouts de <strong>10 segundos</strong> para mitigar conexiones lentas. Toda la solución corre en una red bridge aislada <code>red-defensa (172.28.0.0/16)</code> con volúmenes en solo lectura (<code>:ro</code>) y recursos acotados a 128 MB de RAM y 0.50 CPU."
-</div>
-
-<div class="quote-box">
-    <strong>Expositor 3: Demostración en Vivo, Análisis Forense de Resultados y Conclusiones (Diapositivas 7 a 10)</strong><br>
-    "Procederemos ahora con la demostración en vivo y el análisis forense de la telemetría.<br><br>
-    En primer lugar, realizamos la auditoría de hardening perimetral ejecutando <code>curl.exe -I http://localhost</code> desde el host. Confirmamos que el encabezado <code>Server</code> reporta exclusivamente <code>nginx</code>, constatamos la emisión activa de <code>X-Frame-Options</code>, <code>X-Content-Type-Options</code>, <code>Content-Security-Policy</code> y <code>Permissions-Policy</code>, y validamos que una petición <code>POST</code> es bloqueada con <code>403 Forbidden</code>.<br><br>
-    A continuación, ingresamos al contenedor atacante y desatamos una prueba de estrés de Capa 7 utilizando Apache Benchmark: <code>ab -n 1000 -c 50 http://172.28.0.10/</code>, inyectando 1000 peticiones en 50 hilos simultáneos.<br><br>
-    <em>(Ejecuta la prueba y muestra la consola)</em><br><br>
-    Observen las métricas forenses: de las 1000 peticiones procesadas en <strong>4.100 segundos</strong>, <strong>exactamente 31 peticiones resultaron 200 OK y 969 fueron bloqueadas con código 503</strong>. La deducción matemática coincide con el algoritmo Leaky Bucket: se concede 1 petición base en <i>t</i> = 0, 10 peticiones absorben los slots del <code>burst=10</code>, y durante los 4.100 s de la prueba el cubo drena &lfloor;5 &times; 4.100&rfloor; = 20 tokens adicionales (1 + 10 + 20 = 31). Las 969 solicitudes restantes fueron interceptadas y rechazadas al instante en memoria compartida.<br><br>
-    Esto demuestra que el servidor no colapsó ni desbordó sus límites de 128 MB de RAM y 0.50 CPU, sino que ejecutó una <strong>Defensa Activa Exitosa en Capa 7</strong>. Quedamos a disposición del profesor para la ronda de preguntas."
-</div>
-
-<div class="page-break"></div>
-
-<!-- CHEAT SHEET -->
-<h1>8. Manual Rápido de Ejecución en Vivo (Cheat Sheet)</h1>
-
-<pre><code># 1. Ubicarse en la carpeta del proyecto y levantar el stack con Docker Compose
-cd "c:\Users\Anderson Ojeda\Downloads\final2\final2"
+<h2>2. Qué construimos y cómo se conecta</h2>
+<table>
+<thead>
+<tr>
+<th>Componente</th>
+<th>Función en el laboratorio</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Navegador en el equipo</td>
+<td>Abre <code>http://localhost</code> y ejecuta las pruebas del panel.</td>
+</tr>
+<tr>
+<td>Contenedor <code>servidor-defensa</code></td>
+<td>Ejecuta Nginx y sirve el panel. Su IP interna es <code>172.28.0.10</code>.</td>
+</tr>
+<tr>
+<td>Contenedor <code>cliente-atacante</code></td>
+<td>Sirve como cliente para pruebas opcionales con Apache Benchmark. Su IP interna es <code>172.28.0.20</code>.</td>
+</tr>
+<tr>
+<td>Red <code>red-defensa</code></td>
+<td>Permite que los contenedores se comuniquen.</td>
+</tr>
+<tr>
+<td>Docker Compose</td>
+<td>Crea los contenedores y la red usando un archivo de configuración.</td>
+</tr>
+</tbody>
+</table>
+<p>El navegador accede al puerto 80 del equipo, que Docker conecta con el puerto 80 de Nginx. Para las pruebas con botones no es necesario usar el contenedor cliente. El nombre <code>cliente-atacante</code> representa su papel dentro del laboratorio.</p>
+<h3>Archivos principales</h3>
+<table>
+<thead>
+<tr>
+<th>Archivo</th>
+<th>Para qué sirve</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nginx.conf</code></td>
+<td>Define las políticas de seguridad y los límites.</td>
+</tr>
+<tr>
+<td><code>docker-compose.yml</code></td>
+<td>Describe cómo ejecutar los dos contenedores.</td>
+</tr>
+<tr>
+<td><code>html/index.html</code></td>
+<td>Contiene la estructura y los textos del panel.</td>
+</tr>
+<tr>
+<td><code>html/panel.css</code></td>
+<td>Define el diseño del panel para escritorio y móvil.</td>
+</tr>
+<tr>
+<td><code>html/panel.js</code></td>
+<td>Envía las peticiones y presenta sus resultados.</td>
+</tr>
+<tr>
+<td><code>html/custom_503.html</code></td>
+<td>Es la página que Nginx devuelve al rechazar solicitudes por los límites configurados.</td>
+</tr>
+</tbody>
+</table>
+<h2>3. Contenido de las diez diapositivas</h2>
+<h3 class="slide-start">Diapositiva 1. Laboratorio de seguridad con Nginx</h3>
+<p><strong>Texto para la diapositiva</strong></p>
+<ul>
+<li>Hardening y control de solicitudes HTTP en capa 7.</li>
+<li>Implementación con Nginx y Docker.</li>
+<li>Demostración mediante un panel web interactivo.</li>
+<li>Integrantes: completar con los nombres del equipo.</li>
+</ul>
+<p><strong>Qué decir</strong></p>
+<blockquote>
+<p>Nuestro proyecto es un laboratorio de seguridad para un servidor web. Configuramos Nginx para aplicar reglas sobre las solicitudes que recibe. Después construimos un panel que permite observar esas reglas en acción. Durante la demostración vamos a hacer una consulta normal, enviar un método restringido y generar una ráfaga pequeña de solicitudes.</p>
+</blockquote>
+<p><strong>Qué mostrar</strong></p>
+<p>Una captura de la parte superior del panel o el título del proyecto. Mantén <code>http://localhost</code> abierto en otra pestaña para la demostración.</p>
+<h3 class="slide-start">Diapositiva 2. El problema de seguridad</h3>
+<p><strong>Texto para la diapositiva</strong></p>
+<ul>
+<li>Una configuración poco restrictiva puede exponer información innecesaria.</li>
+<li>El servidor necesita definir qué solicitudes acepta.</li>
+<li>El exceso de tráfico puede afectar la disponibilidad.</li>
+</ul>
+<p><strong>Qué decir</strong></p>
+<blockquote>
+<p>Un servidor web recibe peticiones cada vez que alguien consulta su contenido. Si su configuración no establece controles adecuados, puede mostrar detalles innecesarios o aceptar operaciones que no necesita. Además, muchas solicitudes en poco tiempo pueden aumentar la carga. Por eso trabajamos sobre la configuración y sobre el ritmo de peticiones permitido.</p>
+</blockquote>
+<p><strong>Qué mostrar</strong></p>
+<p>Un dibujo sencillo de varios clientes enviando solicitudes a un servidor. Presenta el exceso de carga como un riesgo que buscamos reducir, sin afirmar que medimos una caída del servidor.</p>
+<h3 class="slide-start">Diapositiva 3. Objetivo y alcance</h3>
+<p><strong>Texto para la diapositiva</strong></p>
+<ul>
+<li>Aplicar reglas de seguridad a un servidor Nginx.</li>
+<li>Observar respuestas reales desde el navegador.</li>
+<li>Comprobar controles HTTP en un laboratorio local.</li>
+</ul>
+<p><strong>Qué decir</strong></p>
+<blockquote>
+<p>El objetivo es demostrar controles concretos y entender sus resultados. Trabajamos en capa 7 porque las decisiones se toman sobre solicitudes HTTP, como GET y POST. El laboratorio permite comprobar cabeceras, restricciones de métodos y rechazos por exceso de tráfico. La demostración se realiza en nuestro equipo y su alcance es esa configuración local.</p>
+</blockquote>
+<p><strong>Qué mostrar</strong></p>
+<p>El diagrama del panel donde aparecen el navegador, Nginx y las respuestas HTTP.</p>
+<h3 class="slide-start">Diapositiva 4. Arquitectura del laboratorio</h3>
+<p><strong>Texto para la diapositiva</strong></p>
+<ul>
+<li>Docker Compose prepara el entorno.</li>
+<li>Nginx sirve el panel y aplica las políticas.</li>
+<li>El navegador envía las pruebas a <code>http://localhost</code>.</li>
+<li>Un segundo contenedor permite pruebas complementarias con Apache Benchmark.</li>
+</ul>
+<p><strong>Qué decir</strong></p>
+<blockquote>
+<p>Ejecutamos Nginx dentro de un contenedor. Docker publica su puerto para que podamos acceder desde el navegador. El panel usa HTML, CSS y JavaScript y envía peticiones al mismo servidor. También tenemos un contenedor cliente para pruebas complementarias. Así podemos repetir el laboratorio usando los mismos archivos de configuración.</p>
+</blockquote>
+<p><strong>Qué mostrar</strong></p>
+<p>Dos bloques dentro de Docker: <code>servidor-defensa</code> y <code>cliente-atacante</code>. Fuera de Docker, dibuja el navegador. Conecta el navegador con Nginx y el cliente de pruebas con Nginx.</p>
+<h3 class="slide-start">Diapositiva 5. Hardening del servidor</h3>
+<p><strong>Texto para la diapositiva</strong></p>
+<ul>
+<li>Ocultamos el número de versión de Nginx.</li>
+<li>Añadimos cabeceras con instrucciones de seguridad para el navegador.</li>
+<li>Permitimos GET y HEAD en la ruta del panel.</li>
+<li>Referencia académica: OWASP A05:2021, configuración de seguridad incorrecta.</li>
+</ul>
+<p><strong>Qué decir</strong></p>
+<blockquote>
+<p>Hardening significa ajustar la configuración para reducir riesgos. Aquí el servidor informa que usa Nginx, pero no muestra su número de versión. También envía cabeceras que restringen recursos y la inclusión de la página en otros sitios. Como este laboratorio sirve contenido de consulta, permitimos GET y HEAD. Estas medidas se relacionan con la categoría de configuración de seguridad incorrecta de OWASP 2021.</p>
+</blockquote>
+<p><strong>Qué mostrar</strong></p>
+<p>La tabla de cabeceras del panel después de ejecutar GET. Señala <code>Server: nginx</code>, <code>X-Frame-Options: SAMEORIGIN</code> y <code>Content-Security-Policy</code>.</p>
+<h3 class="slide-start">Diapositiva 6. Control del ritmo de solicitudes</h3>
+<p><strong>Texto para la diapositiva</strong></p>
+<ul>
+<li>Tasa configurada: 5 solicitudes por segundo por IP.</li>
+<li><code>burst=10</code>: tolerancia adicional a una ráfaga breve.</li>
+<li><code>nodelay</code>: atención inmediata dentro de esa tolerancia.</li>
+<li>Código configurado para el rechazo: 503.</li>
+</ul>
+<p><strong>Qué decir</strong></p>
+<blockquote>
+<p>El limitador lleva una cuenta por dirección IP. La tasa es de cinco solicitudes por segundo y existe una tolerancia adicional para picos breves. Con nodelay, las solicitudes admitidas dentro de esa tolerancia pasan sin una espera añadida por el limitador. Cuando el exceso supera lo permitido, Nginx lo rechaza. Por eso no debemos interpretar la regla como un máximo rígido de cinco respuestas en cualquier segundo.</p>
+</blockquote>
+<p><strong>Qué mostrar</strong></p>
+<p>Los valores de configuración que aparecen arriba de las pruebas. Si deseas mostrar código, basta con estas dos líneas de <code>nginx.conf</code>:</p>
+<pre><code class="language-nginx">limit_req_zone $binary_remote_addr zone=zona_limite:10m rate=5r/s;
+limit_req zone=zona_limite burst=10 nodelay;
+</code></pre>
+<h3 class="slide-start">Diapositiva 7. Prueba de una consulta normal</h3>
+<p><strong>Texto para la diapositiva</strong></p>
+<ul>
+<li>Acción: pulsar «Probar consulta GET».</li>
+<li>Respuesta esperada: 200 OK.</li>
+<li>Evidencia: código HTTP, tiempo y cabeceras recibidas.</li>
+</ul>
+<p><strong>Qué decir</strong></p>
+<blockquote>
+<p>Primero enviamos una consulta normal. El panel hace una petición GET real a Nginx. Si la solicitud está permitida y hay cuota disponible, recibimos 200 OK. Debajo podemos leer las cabeceras de esa respuesta. Esto muestra tanto el acceso al contenido como las instrucciones de seguridad que el servidor entrega al navegador.</p>
+</blockquote>
+<p><strong>Qué mostrar</strong></p>
+<p>Cambia al navegador, pulsa el botón GET y señala el resultado. Baja a la tabla de cabeceras. El estado «7 de 7» indica cuántas cabeceras de la lista se recibieron, no una certificación de seguridad.</p>
+<h3 class="slide-start">Diapositiva 8. Prueba de un método restringido</h3>
+<p><strong>Texto para la diapositiva</strong></p>
+<ul>
+<li>Acción: pulsar «Probar bloqueo de POST».</li>
+<li>El panel envía un POST vacío.</li>
+<li>Respuesta esperada: 403 Forbidden.</li>
+<li>Nginx aplica la restricción en el servidor.</li>
+</ul>
+<p><strong>Qué decir</strong></p>
+<blockquote>
+<p>Ahora enviamos un POST sin datos. Aunque el navegador puede hacer esa solicitud, Nginx la rechaza porque la ruta solo permite GET y HEAD. El resultado esperado es 403 Forbidden. Con esta prueba comprobamos una política del servidor. En una aplicación que necesitara formularios o una API, habría que permitir los métodos adecuados en las rutas correspondientes.</p>
+</blockquote>
+<p><strong>Qué mostrar</strong></p>
+<p>Pulsa POST y muestra el 403 en el resultado y en el registro. Explica que esta prueba comprueba el método permitido, sin realizar cambios en datos.</p>
+<h3 class="slide-start">Diapositiva 9. Prueba de una ráfaga</h3>
+<p><strong>Texto para la diapositiva</strong></p>
+<ul>
+<li>Acción: pulsar «Enviar ráfaga de 40».</li>
+<li>Hasta 6 peticiones simultáneas desde el navegador.</li>
+<li>El panel cuenta las respuestas permitidas y rechazadas.</li>
+<li>Ejemplo observado: 11 respuestas 200 y 29 respuestas 503.</li>
+</ul>
+<p><strong>Qué decir</strong></p>
+<blockquote>
+<p>Enviamos cuarenta solicitudes para superar la tasa permitida en un intervalo corto. En una ejecución del panel observamos once respuestas permitidas y veintinueve rechazos con código 503. Es un ejemplo de esa prueba y las cantidades pueden cambiar. Lo que debemos analizar es si el servidor aplicó el límite. En los registros de esa ejecución apareció limiting requests, que confirmó el rechazo por tasa.</p>
+</blockquote>
+<p><strong>Qué mostrar</strong></p>
+<p>Pulsa la ráfaga y señala la barra, los contadores y la vista de la respuesta 503. Abre «Registro de solicitudes». Usa las cantidades que aparezcan en vivo. Si el envío fue más lento y no hubo 503, muestra ese resultado y explica que quizá no se superó la tasa.</p>
+<p><strong>Nota para la diapositiva:</strong> si incluyes 11 y 29, acompáñalos con «Ejemplo de una ejecución local». No representan una tasa de eficacia contra ataques reales.</p>
+<h3 class="slide-start">Diapositiva 10. Resultados y conclusiones</h3>
+<p><strong>Texto para la diapositiva</strong></p>
+<ul>
+<li>Comprobamos GET, restricción de POST y rechazos por exceso de solicitudes.</li>
+<li>El panel permite observar las políticas con respuestas reales.</li>
+<li>El alcance corresponde a controles HTTP en un laboratorio local.</li>
+<li>Próximos pasos posibles: HTTPS y pruebas adicionales de disponibilidad.</li>
+</ul>
+<p><strong>Qué decir</strong></p>
+<blockquote>
+<p>Con el laboratorio comprobamos que la configuración de Nginx modifica cómo responde el servidor. Permitió consultas, rechazó un método restringido y limitó una ráfaga de solicitudes. El panel hizo visibles esos resultados. Las pruebas muestran los controles locales que ejecutamos. Una evaluación de DDoS real, de conexiones lentas o del consumo de recursos requeriría pruebas adicionales.</p>
+</blockquote>
+<p><strong>Qué mostrar</strong></p>
+<p>Una captura del resultado de la ráfaga o una tabla pequeña con GET: 200, POST: 403 y exceso de solicitudes: 503. Termina relacionando cada resultado con su regla.</p>
+<h2>4. Recorrido para la demostración en vivo</h2>
+<h3>Antes de empezar</h3>
+<p>En PowerShell, desde la carpeta real del proyecto:</p>
+<pre><code class="language-powershell">cd 'C:\Users\isamu\Desktop\seguridad\sistemas-Seguridad-Comunicacion'
 docker compose up -d
-
-# 2. Instalar herramientas de auditoría y ataque en el contenedor atacante
-docker exec cliente-atacante apk add --no-cache apache2-utils curl
-
-# 3. Auditoría de Cabeceras y Métodos OWASP A05 (Desde el Host en PowerShell)
-curl.exe -I http://localhost
-curl.exe -s -o NUL -w "POST status: %{http_code}`n" -X POST http://localhost
-
-# 4. Ataque de Inundación DoS L7 (Desde el Atacante)
-docker exec -it cliente-atacante ab -n 1000 -c 50 http://172.28.0.10/
-
-# 5. Inspección de logs forenses en Nginx
-docker logs --tail 25 servidor-defensa
-
-# 6. Limpieza final del entorno
-docker compose down</code></pre>
-
-<!-- BANCO DE PREGUNTAS -->
-<h1>9. Banco de Preguntas Avanzadas para la Sustentación</h1>
-
-<div class="slide-card">
-    <div class="slide-header">Pregunta 1: ¿Por qué usar <code>$binary_remote_addr</code> en lugar de <code>$remote_addr</code> en <code>limit_req_zone</code>?</div>
-    <p><strong>Respuesta:</strong> <code>$binary_remote_addr</code> guarda la IP en formato binario de red (4 bytes para IPv4), mientras que <code>$remote_addr</code> usa cadenas ASCII de 7 a 15 bytes. Esto optimiza el uso de la memoria compartida (SHM), permitiendo registrar 160,000 IPs en 10 MB.</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Pregunta 2: ¿Por qué se procesaron 31 peticiones exitosas y no exactamente 5 con <code>rate=5r/s</code>?</div>
-    <p><strong>Respuesta:</strong> Debido al acoplamiento de <code>burst=10</code>, <code>nodelay</code> y los 4.100 s que duró la prueba. Se aprueba 1 solicitud base + 10 solicitudes en ráfaga + &lfloor;5 &times; 4.100&rfloor; = 20 tokens drenados durante la ejecución (1 + 10 + 20 = 31), rechazando las 969 restantes con 503.</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Pregunta 3: ¿Cuál es la diferencia técnica entre devolver HTTP 503 frente a HTTP 429?</div>
-    <p><strong>Respuesta:</strong> <code>503 Service Unavailable</code> indica indisponibilidad temporal y es el valor por defecto de Nginx para proteger el motor. <code>429 Too Many Requests</code> (RFC 6585) es el código formal para rate limiting en APIs REST.</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Pregunta 4: ¿Por qué la prueba de estrés no saturó la CPU ni tumbó el servidor?</div>
-    <p><strong>Respuesta:</strong> Gracias a la arquitectura orientada a eventos no bloqueante (<code>epoll</code>) y a la evaluación en memoria compartida <i>O</i>(1). Nginx descarta las 969 solicitudes excedentes en RAM sirviendo <code>custom_503.html</code> sin saturar un eventual backend, además de estar protegido por <code>limit_conn 20</code>, timeouts de 10 s y límites de 128 MB / 0.50 CPU.</p>
-</div>
-
-<div class="slide-card">
-    <div class="slide-header">Pregunta 5: ¿Por qué es mandatoria la directiva <code>always</code> en <code>add_header</code>?</div>
-    <p><strong>Respuesta:</strong> Por defecto, Nginx solo añade cabeceras en respuestas 2xx/3xx. La bandera <code>always</code> obliga a inyectar las cabeceras de seguridad también en códigos de error (4xx y 5xx), impidiendo que respuestas de error sean vulnerables a Clickjacking en un iframe.</p>
-</div>
-
-</body>
-</html>
+docker exec servidor-defensa nginx -t
+</code></pre>
+<p>Abre <code>http://localhost</code> y recarga con Ctrl + F5 si tenías una versión anterior. La demostración de los botones no requiere instalar herramientas dentro del contenedor cliente.</p>
+<h3>Durante la exposición</h3>
+<table>
+<thead>
+<tr>
+<th>Paso</th>
+<th>Acción</th>
+<th>Idea para explicar</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Señalar el diagrama del panel.</td>
+<td>El navegador pide contenido y Nginx aplica sus políticas.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Ejecutar GET.</td>
+<td>Una consulta permitida devuelve 200. Las cabeceras también vienen del servidor.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Ejecutar POST.</td>
+<td>La política de métodos rechaza esta solicitud con 403.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Ejecutar la ráfaga de 40.</td>
+<td>El ritmo excesivo puede producir rechazos 503. Mostrar los valores recibidos.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Abrir el registro de solicitudes.</td>
+<td>Cada fila corresponde a una petición de la última prueba.</td>
+</tr>
+</tbody>
+</table>
+<p>El panel espera tres segundos entre pruebas. Esto da tiempo para recuperar la cuota si no hay otro tráfico de la misma IP. Varias pestañas pueden compartirla. El panel mide sus propias solicitudes, no todo el tráfico del servidor.</p>
+<p>Si necesitas confirmar la causa de los rechazos, usa este único comando de apoyo:</p>
+<pre><code class="language-powershell">docker logs --tail 30 servidor-defensa
+</code></pre>
+<p>La expresión <code>limiting requests</code> asociada a las solicitudes de la prueba indica que actuó el límite de tasa. La configuración también utiliza 503 para el límite de conexiones, por lo que el código por sí solo no distingue las dos causas.</p>
+<p>Si la presentación debe durar cinco minutos, explica brevemente el problema y la arquitectura, realiza las tres pruebas y cierra con los resultados. Las diapositivas sirven de apoyo.</p>
+<h2>5. Qué está comprobado y qué está configurado</h2>
+<table>
+<thead>
+<tr>
+<th>Elemento</th>
+<th>Evidencia y alcance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Consulta GET</td>
+<td>Comprobada desde el panel con respuesta 200.</td>
+</tr>
+<tr>
+<td>Restricción de POST</td>
+<td>Comprobada desde el panel con respuesta 403.</td>
+</tr>
+<tr>
+<td>Cabeceras HTTP</td>
+<td>Se recibieron las siete cabeceras de la tabla del panel, incluida <code>Server</code>.</td>
+</tr>
+<tr>
+<td>Límite de solicitudes</td>
+<td>Una prueba de 40 produjo 11 respuestas 200 y 29 respuestas 503. Los registros confirmaron <code>limiting requests</code>.</td>
+</tr>
+<tr>
+<td>Recuperación de la interfaz</td>
+<td>Se comprobó el aviso de pérdida de conexión y una consulta GET correcta al restablecerla.</td>
+</tr>
+<tr>
+<td>Conexiones y tiempos de espera</td>
+<td>Están configurados. La ráfaga del panel no valida por sí sola estos controles ni Slowloris.</td>
+</tr>
+<tr>
+<td>Límites del contenedor</td>
+<td>Docker Compose configura 128 MB y 0.50 CPU para Nginx. No medimos su consumo durante un ataque.</td>
+</tr>
+<tr>
+<td>Resistencia a DDoS real</td>
+<td>No evaluada en este laboratorio.</td>
+</tr>
+</tbody>
+</table>
+<p>Los datos de esta tabla proceden de la validación local del panel durante esta sesión. El informe anterior describía una prueba distinta de 1000 solicitudes. Para esta exposición usamos los resultados y el flujo del panel actual.</p>
+<h2>6. Apoyo técnico para preguntas</h2>
+<h3>Significado de las cabeceras</h3>
+<table>
+<thead>
+<tr>
+<th>Cabecera</th>
+<th>Función que puedes explicar</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Server: nginx</code></td>
+<td>Identifica el servidor sin mostrar su número de versión.</td>
+</tr>
+<tr>
+<td><code>X-Frame-Options: SAMEORIGIN</code></td>
+<td>Restringe la inclusión de la página en marcos de otros orígenes.</td>
+</tr>
+<tr>
+<td><code>X-Content-Type-Options: nosniff</code></td>
+<td>Restringe la interpretación de contenido de forma distinta al tipo declarado.</td>
+</tr>
+<tr>
+<td><code>Content-Security-Policy</code></td>
+<td>Define orígenes y recursos permitidos para la página.</td>
+</tr>
+<tr>
+<td><code>Referrer-Policy</code></td>
+<td>Controla qué información de procedencia se envía al navegar o pedir recursos.</td>
+</tr>
+<tr>
+<td><code>Permissions-Policy</code></td>
+<td>Deshabilita ubicación, cámara y micrófono para esta página.</td>
+</tr>
+<tr>
+<td><code>X-XSS-Protection: 0</code></td>
+<td>Desactiva un filtro XSS antiguo. La configuración utiliza CSP como medida complementaria frente a ciertos riesgos del navegador.</td>
+</tr>
+</tbody>
+</table>
+<p>Las cabeceras usan <code>always</code>, que permite añadirlas también en las respuestas de error de esta configuración. Recibirlas demuestra su presencia. Evaluar su eficacia frente a cada ataque exigiría pruebas específicas.</p>
+<h3>Controles adicionales del archivo nginx.conf</h3>
+<ul>
+<li><code>limit_conn zona_conn 20</code>: limita por IP las conexiones que el módulo contabiliza. Nginx las cuenta cuando procesa una solicitud y ya leyó la cabecera completa. No equivale a contar todos los sockets TCP abiertos.</li>
+<li><code>client_header_timeout 10s</code>: limita la espera para leer la cabecera.</li>
+<li><code>client_body_timeout 10s</code>: limita la espera entre lecturas sucesivas del cuerpo.</li>
+<li><code>send_timeout 10s</code>: limita la espera entre escrituras sucesivas hacia el cliente.</li>
+<li><code>keepalive_timeout 15s</code>: limita cuánto tiempo permanece ociosa una conexión reutilizable.</li>
+<li><code>client_max_body_size 1m</code>: limita el tamaño del cuerpo admitido.</li>
+<li>Los montajes <code>:ro</code> permiten leer los archivos del proyecto desde el contenedor sin modificarlos mediante esos montajes. No convierten todo el sistema de archivos del contenedor en inmutable.</li>
+</ul>
+<p>Estos ajustes complementan las pruebas principales. No es necesario leerlos todos durante la exposición.</p>
+<h3>Preguntas frecuentes y respuestas sencillas</h3>
+<p><strong>¿Por qué una página sencilla sirve para un proyecto de seguridad?</strong></p>
+<p>Porque las reglas se aplican en Nginx antes de entregar el contenido. El panel envía peticiones y presenta evidencia de esas reglas. La complejidad de la página no determina si el servidor aplica controles.</p>
+<p><strong>¿Los números del panel son simulados?</strong></p>
+<p>Los resultados se calculan con las respuestas de las peticiones reales de la última prueba. Los valores de configuración que aparecen arriba, como 5 solicitudes por segundo, son textos que representan <code>nginx.conf</code>. El panel no descubre automáticamente los cambios de configuración.</p>
+<p><strong>¿Un 503 significa que el servidor se cayó?</strong></p>
+<p>503 significa que la solicitud no pudo atenderse en ese momento. En nuestra prueba los registros mostraron un rechazo por tasa. En otros contextos puede tener otras causas.</p>
+<p><strong>¿Por qué pasan más de cinco solicitudes?</strong></p>
+<p>Porque existe una tolerancia de ráfaga y el límite se recupera con el tiempo. También influye la cuota consumida antes de la prueba. Por eso las cantidades varían.</p>
+<p><strong>¿La regla distingue usuarios legítimos de atacantes?</strong></p>
+<p>La regla aplica una cuota por IP. No determina la intención de quien envía la petición. Clientes que comparten una IP también pueden compartir el límite.</p>
+<p><strong>¿Qué relación tiene con OWASP?</strong></p>
+<p>Usamos A05:2021 como referencia de configuración de seguridad incorrecta. Las cabeceras y la reducción de exposición son medidas relacionadas con esa categoría. El laboratorio no representa una auditoría de todo OWASP Top 10.</p>
+<p><strong>¿Por qué usan Docker?</strong></p>
+<p>Para preparar el entorno con una configuración repetible y separar los componentes en contenedores. El puerto publicado permite acceder al servidor desde el equipo.</p>
+<p><strong>¿Por qué 503 y no 429?</strong></p>
+<p>Este proyecto configura 503 como respuesta de los limitadores. 429 es el código específico para exceso de solicitudes y sería una opción si se ajustara la política y su página de error.</p>
+<p><strong>¿Tienen protección completa contra Slowloris o DDoS?</strong></p>
+<p>Hay controles de tiempo y conexiones configurados. Para evaluar esos ataques necesitaríamos pruebas diferentes. Lo demostrado aquí es el comportamiento HTTP local de las pruebas realizadas.</p>
+<p><strong>¿Ocultar la versión elimina vulnerabilidades?</strong></p>
+<p>Reduce información expuesta. Las actualizaciones y la revisión de la configuración siguen siendo necesarias.</p>
+<h2>7. Reparto sugerido si exponen tres integrantes</h2>
+<table>
+<thead>
+<tr>
+<th>Integrante</th>
+<th>Diapositivas</th>
+<th>Enfoque</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Primero</td>
+<td>1 a 3</td>
+<td>Presentación del laboratorio, problema y objetivo.</td>
+</tr>
+<tr>
+<td>Segundo</td>
+<td>4 a 6</td>
+<td>Arquitectura y explicación de las reglas.</td>
+</tr>
+<tr>
+<td>Tercero</td>
+<td>7 a 10</td>
+<td>Demostración desde el navegador y conclusiones.</td>
+</tr>
+</tbody>
+</table>
+<p>Como transición hacia la demostración puedes decir: «Ahora que conocemos las reglas, vamos a enviar solicitudes reales para observar cómo responde el servidor».</p>
+<h2>8. Referencias y archivos de respaldo</h2>
+<p>Las explicaciones se apoyan en los archivos del proyecto, en las pruebas locales descritas y en estas fuentes oficiales:</p>
+<ol>
+<li><a href="https://top10.owasp.org/2021/A05_2021-Security_Misconfiguration/">OWASP Top 10 2021: A05, configuración de seguridad incorrecta</a>. Referencia de hardening y cabeceras de seguridad.</li>
+<li><a href="https://nginx.org/en/docs/http/ngx_http_limit_req_module.html">Nginx: limitación de solicitudes</a>. Funcionamiento del limitador y sus parámetros.</li>
+<li><a href="https://nginx.org/en/docs/http/ngx_http_limit_conn_module.html">Nginx: limitación de conexiones</a>. Condiciones bajo las que el módulo cuenta conexiones.</li>
+<li><a href="https://nginx.org/en/docs/http/ngx_http_core_module.html">Nginx: directivas principales</a>. Métodos, versión y tiempos de espera.</li>
+<li><a href="https://nginx.org/en/docs/http/ngx_http_headers_module.html#add_header">Nginx: cabeceras de respuesta</a>. Comportamiento de <code>add_header</code> y <code>always</code>.</li>
+</ol>
+<p>Para iniciar el laboratorio o usar Apache Benchmark como apoyo, consulta <code>README.md</code>. Los archivos <code>INFORME_Y_GUIA_DE_SUSTENTACION.pdf</code> y <code>documento_para_pdf.html</code> corresponden a esta guía actualizada.</p></article></body></html>

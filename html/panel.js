@@ -1,147 +1,65 @@
 "use strict";
-
-const byId = (id) => document.getElementById(id);
-const buttons = [...document.querySelectorAll("[data-test]")];
-const headerCells = [...document.querySelectorAll("[data-header]")];
-const statusNames = { 200: "OK", 403: "Forbidden", 503: "Service Unavailable" };
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-let running = false;
-
-function updateCounters(counts, completed, total) {
-    for (const key of Object.keys(counts)) {
-        byId(`count-${key}`).textContent = counts[key];
-        byId(`bar-${key}`).style.width = `${counts[key] / total * 100}%`;
-    }
-    byId("progress-label").textContent = `${completed} de ${total} completadas`;
-    byId("meter").setAttribute("aria-label", `${counts.ok} permitidas, ${counts.denied} rechazadas, ${counts.other} con otros códigos y ${counts.error} errores. ${completed} de ${total} completadas.`);
-    byId("log-count").textContent = `(${completed})`;
+const $ = id => document.getElementById(id);
+async function request(url, options = {}) {
+  const response = await fetch(url, {cache:"no-store", ...options});
+  const type = response.headers.get("content-type") || "";
+  const data = type.includes("application/json") ? await response.json() : {};
+  return {response, data};
 }
-
-function showHeaders(headers, status) {
-    let found = 0;
-    for (const cell of headerCells) {
-        const value = headers.get(cell.dataset.header);
-        cell.textContent = value || "No recibida";
-        if (value !== null) found++;
-    }
-    byId("audit-summary").textContent = `${found} de ${headerCells.length} cabeceras recibidas en una respuesta HTTP ${status}. Puedes leer sus valores en la tabla.`;
+const form = $("login-form");
+if (form) form.addEventListener("submit", async event => {
+  event.preventDefault();
+  const button = form.querySelector("button"); button.disabled = true;
+  $("message").textContent = "";
+  try {
+    const {response, data} = await request("/api/auth/login", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({username:$("username").value,password:$("password").value})});
+    if (response.ok) location.href = "/tienda.html";
+    else $("message").textContent = data.message || (response.status === 503 ? "Demasiadas solicitudes. Espera un momento." : "No fue posible iniciar sesi?n.");
+  } catch { $("message").textContent = "No se pudo conectar con el servidor."; }
+  finally { button.disabled = false; }
+});
+if ($("logout")) $("logout").addEventListener("click", async () => {
+  try { await request("/api/auth/logout", {method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}); location.href = "/"; }
+  catch { alert("No se pudo cerrar la sesi?n. Int?ntalo de nuevo."); }
+});
+async function authenticated(url) {
+  const result = await request(url);
+  if (result.response.status === 401) { location.href = "/"; return null; }
+  if (!result.response.ok) throw new Error("Servicio no disponible");
+  return result.data;
 }
-
-async function request(method, index, runId) {
-    const start = performance.now();
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    try {
-        // Siempre el mismo origen. La consulta única evita reutilizar una respuesta en caché.
-        const response = await fetch(`/?lab=${runId}-${index}`, {
-            method, cache: "no-store", signal: controller.signal
-        });
-        const body = await response.text();
-        return { index, method, status: response.status, headers: response.headers, body, ms: Math.round(performance.now() - start) };
-    } catch (error) {
-        return { index, method, status: 0, reason: error.name === "AbortError" ? "Espera agotada (5 s)" : "Sin conexión", ms: Math.round(performance.now() - start) };
-    } finally {
-        clearTimeout(timeout);
-    }
+function row(values) {
+  const tr = document.createElement("tr");
+  for (const value of values) { const td = document.createElement("td"); td.textContent = value; tr.appendChild(td); }
+  return tr;
 }
-
-function addLog(result) {
-    const row = document.createElement("tr");
-    const values = [result.index, result.method, result.status ? `${result.status} ${statusNames[result.status] || ""}` : result.reason, `${result.ms} ms`];
-    for (const value of values) {
-        const cell = document.createElement("td");
-        cell.textContent = value;
-        row.appendChild(cell);
-    }
-    row.children[2].className = result.status >= 200 && result.status < 300 ? "response-ok" : [403, 503].includes(result.status) ? "response-denied" : "response-other";
-    byId("request-log").appendChild(row);
-}
-
-function explain(type, results) {
-    const statuses = results.map((result) => result.status);
-    if (statuses.every((status) => status === 0)) return "No se recibió respuesta. Comprueba que Docker y Nginx estén en ejecución y abre http://localhost, en lugar de abrir el archivo HTML directamente.";
-    if (type === "normal") return statuses[0] === 200 ? "200 OK: Nginx permitió la consulta. Revisa debajo las cabeceras reales de esta respuesta." : `Se recibió HTTP ${statuses[0]}. Si aparece 503, espera unos segundos: otras peticiones de tu IP también consumen el límite.`;
-    if (type === "method") return statuses[0] === 403 ? "403 Forbidden: Nginx rechazó POST porque esta ruta solo permite GET y HEAD. La restricción se aplica en el servidor." : `Se recibió HTTP ${statuses[0]}, en lugar del 403 esperado. Revisa la configuración y los registros de Nginx.`;
-    const rejected = statuses.filter((status) => status === 503).length;
-    return rejected ? `Nginx respondió 503 a ${rejected} de las 40 solicitudes. La ráfaga superó los límites del laboratorio; el panel sigue abierto para analizar los resultados.` : "La ráfaga terminó sin respuestas 503. Si el navegador o la red espaciaron las solicitudes, quizá no superaron el límite. Consulta el registro y la configuración de Nginx.";
-}
-
-async function runTest(type) {
-    if (running) return;
-    running = true;
-    buttons.forEach((button) => { button.disabled = true; });
-    byId("response-preview").hidden = true;
-    byId("error-preview").removeAttribute("srcdoc");
-    byId("request-log").replaceChildren();
-    byId("test-note").textContent = "Enviando peticiones reales a este servidor…";
-    byId("audit-summary").textContent = "Comprobando las cabeceras de esta prueba…";
-    headerCells.forEach((cell) => { cell.textContent = "Comprobando…"; });
-    const total = type === "burst" ? 40 : 1;
-    const method = type === "method" ? "POST" : "GET";
-    const counts = { ok: 0, denied: 0, other: 0, error: 0 };
-    const results = [];
-    const runId = Date.now();
-    let next = 0;
-    let previewShown = false;
-    updateCounters(counts, 0, total);
-    byId("test-message").textContent = type === "burst" ? "Enviando 40 consultas, con un máximo de 6 en paralelo…" : `Enviando una petición ${method}…`;
-    byId("result-title").scrollIntoView({ block: "start" });
-    const started = performance.now();
-
-    async function worker() {
-        while (next < total) {
-            const result = await request(method, ++next, runId);
-            results.push(result);
-            const group = result.status === 0 ? "error" : result.status >= 200 && result.status < 300 ? "ok" : [403, 503].includes(result.status) ? "denied" : "other";
-            counts[group]++;
-            addLog(result);
-            updateCounters(counts, results.length, total);
-            if (result.headers) {
-                showHeaders(result.headers, result.status);
-                byId("connection").textContent = "Servidor con respuesta HTTP";
-                byId("connection").classList.add("connected");
-            }
-            if (result.status === 503 && !previewShown) {
-                // Se muestra el HTML que Nginx devolvió, sin ejecutar scripts ni pedir otra página.
-                byId("error-preview").srcdoc = result.body;
-                byId("response-preview").hidden = false;
-                previewShown = true;
-            }
-        }
-    }
-
-    try {
-        await Promise.all(Array.from({ length: Math.min(6, total) }, worker));
-        byId("test-message").textContent = explain(type, results);
-        const elapsed = ((performance.now() - started) / 1000).toFixed(2);
-        const failures = counts.error ? ` ${counts.error} solicitudes no recibieron respuesta HTTP.` : "";
-        const measurement = `Última prueba: ${results.length} ${total === 1 ? "solicitud" : "solicitudes"} en ${elapsed} s.${failures} Los resultados dependen del ritmo de envío y del tráfico de tu IP.`;
-        if (counts.error === total) {
-            byId("connection").textContent = "Sin respuesta del servidor";
-            byId("connection").classList.remove("connected");
-            byId("audit-summary").textContent = "No se recibieron cabeceras en esta prueba.";
-            headerCells.forEach((cell) => { cell.textContent = "Sin respuesta"; });
-        }
-        // El bucket de 10 a 5 r/s se recupera en unos 2 s sin tráfico adicional.
-        for (let seconds = 3; seconds > 0; seconds--) {
-            byId("test-note").textContent = `${measurement} Próxima prueba disponible en ${seconds} s.`;
-            await wait(1000);
-        }
-        byId("test-note").textContent = `${measurement} Puedes ejecutar otra prueba.`;
-    } catch {
-        byId("test-message").textContent = "No se pudo completar la prueba. Recarga el panel y comprueba los registros del servidor.";
-    } finally {
-        running = false;
-        buttons.forEach((button) => { button.disabled = false; });
-    }
-}
-
-if (["http:", "https:"].includes(location.protocol)) {
-    buttons.forEach((button) => {
-        button.disabled = false;
-        button.addEventListener("click", () => runTest(button.dataset.test));
+if ($("products")) authenticated("/api/products").then(data => {
+  if (!data) return;
+  $("total").textContent = data.products.length;
+  $("stock").textContent = data.products.reduce((sum,p) => sum + p.stock, 0);
+  data.products.forEach(p => $("products").appendChild(row([p.name,p.category,`$${Number(p.price).toLocaleString("es-CO")}`,p.stock])));
+}).catch(() => { $("products").appendChild(row(["No se pudo cargar el inventario."])); });
+async function refresh() {
+  try {
+    const data = await authenticated("/api/monitor"); if (!data) return;
+    const entries = data.entries;
+    $("total").textContent = entries.length;
+    for (const [id,status] of [["ok",200],["unauthorized",401],["limited",429],["blocked",503]]) $(id).textContent = entries.filter(e => e.status === status).length;
+    const body = $("events"); body.replaceChildren();
+    if (!entries.length) body.appendChild(row(["Todav?a no hay solicitudes registradas."]));
+    entries.slice(0,100).forEach(e => {
+      const tr = row([new Date(e.time).toLocaleTimeString("es-CO"),e.method,e.path,e.ip,e.status]);
+      const badge = document.createElement("span"); badge.className = `code ${e.status >= 400 ? "error" : ""}`; badge.textContent = e.status; tr.lastChild.replaceChildren(badge); body.appendChild(tr);
     });
-} else {
-    byId("test-message").textContent = "Abre http://localhost con el laboratorio Docker encendido. Abrir index.html directamente no permite probar las defensas de Nginx.";
-    byId("connection").textContent = "Abrir desde Nginx";
+  } catch { $("events").replaceChildren(row(["No se pudo cargar la actividad."])); }
+}
+if ($("events")) {
+  refresh(); setInterval(refresh, 5000); $("refresh").addEventListener("click", refresh);
+  $("traffic").addEventListener("click", async () => {
+    const button = $("traffic"); button.disabled = true; let next = 0, done = 0, rejected = 0, errors = 0;
+    $("traffic-result").textContent = "Enviando solicitudes?";
+    async function worker() { while (next < 1000) { next++; try { const r = await fetch("/api/demo/protected",{cache:"no-store"}); if (r.status === 503) rejected++; await r.arrayBuffer(); } catch { errors++; } done++; if (done % 100 === 0) $("traffic-result").textContent = `${done} de 1.000 solicitudes`; } }
+    await Promise.all(Array.from({length:20},worker));
+    $("traffic-result").textContent = `Finalizado: ${rejected} respuestas 503; ${errors} errores de conexi?n.`; button.disabled = false; refresh();
+  });
 }

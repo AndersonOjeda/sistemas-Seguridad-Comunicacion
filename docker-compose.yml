@@ -1,13 +1,37 @@
 services:
+  demo_app:
+    image: python:3.13-alpine
+    container_name: demo-app
+    command: python -u /app/app.py
+    working_dir: /app
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+    volumes:
+      - ./app.py:/app/app.py:ro
+      - monitor_logs:/monitor:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 96m
+    cpus: 0.50
+    networks:
+      red-defensa:
+        ipv4_address: 172.28.0.30
+
   servidor-defensa:
     image: nginx:alpine
     container_name: servidor-defensa
     restart: always
     ports:
-      - "80:80"
+      - "127.0.0.1:80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./html:/usr/share/nginx/html:ro
+      - monitor_logs:/monitor
     security_opt:
       - no-new-privileges:true
     mem_limit: 128m
@@ -15,6 +39,8 @@ services:
     networks:
       red-defensa:
         ipv4_address: 172.28.0.10
+    depends_on:
+      - demo_app
 
   cliente-atacante:
     image: alpine:latest
@@ -32,3 +58,6 @@ networks:
     ipam:
       config:
         - subnet: 172.28.0.0/16
+
+volumes:
+  monitor_logs:
