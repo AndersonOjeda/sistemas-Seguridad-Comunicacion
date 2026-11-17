@@ -8,6 +8,7 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
     volumes:
       - ./app.py:/app/app.py:ro
+      - ./html:/app/html:ro
       - monitor_logs:/monitor:ro
     read_only: true
     tmpfs:
@@ -43,9 +44,24 @@ services:
       - demo_app
 
   cliente-atacante:
-    image: alpine:latest
+    # Sigue siendo Alpine; Python permite medir HTTP sin instalar herramientas al arrancar.
+    image: python:3.13-alpine
     container_name: cliente-atacante
-    command: tail -f /dev/null
+    command: python -u /app/app.py --attacker
+    working_dir: /app
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+    volumes:
+      - ./app.py:/app/app.py:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 96m
+    cpus: 0.50
     networks:
       red-defensa:
         ipv4_address: 172.28.0.20

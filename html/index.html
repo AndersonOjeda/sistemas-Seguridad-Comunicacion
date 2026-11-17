@@ -1,1 +1,30 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mercado Local</title><link rel="icon" href="favicon.svg"><link rel="stylesheet" href="panel.css"><script src="panel.js" defer></script></head><body class="login-page"><main class="login-layout"><section class="login-intro"><a class="brand light" href="/"><span>M</span> mercado local</a><div><p class="overline">Tu negocio, en un solo lugar</p><h1>Lo cotidiano,<br>bien organizado.</h1><p>Un espacio para cuidar lo que hace especial a tu tienda.</p></div><small>Mercado Local ? Gesti?n de tienda</small></section><section class="login-form-wrap"><form id="login-form" class="login-form"><p class="overline">Bienvenido de nuevo</p><h2>Iniciar sesi?n</h2><p>Ingresa tus datos para continuar.</p><label for="username">Usuario</label><input id="username" autocomplete="username" required><label for="password">Contrase?a</label><input id="password" type="password" autocomplete="current-password" required><button class="primary" type="submit">Entrar a mi cuenta</button><p id="message" role="status" class="message"></p></form></section></main></body></html>
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Acceso · Mercado Local</title><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/panel.css"><script src="/panel.js" defer></script></head>
+<body class="login-page">
+<a class="skip-link" href="#main">Saltar al contenido</a>
+<main class="login-layout" id="main">
+  <section class="login-intro">
+    <a class="brand light" href="/"><span aria-hidden="true">M</span> Mercado Local</a>
+    <div class="intro-copy"><span class="pill">Laboratorio de seguridad</span><h1>Un acceso seguro.<br>Dos perspectivas.</h1><p>Explora tu tienda como usuario o comprueba sus defensas como administrador.</p>
+      <div class="flow" aria-label="Las solicitudes pasan por Nginx antes de llegar a la aplicación"><span>Navegador</span><b aria-hidden="true">→</b><span class="flow-gateway">Nginx</span><b aria-hidden="true">→</b><span>Aplicación</span></div>
+      <p class="intro-note">Cada respuesta que ves procede del servidor.</p>
+    </div>
+    <small>Entorno local con Nginx y Docker</small>
+  </section>
+  <section class="login-form-wrap">
+    <div class="login-form">
+      <h2>Iniciar sesión</h2><p class="muted">Elige una cuenta de demostración e ingresa su contraseña.</p>
+      <form id="login-form">
+        <label for="username">Usuario</label><input id="username" name="username" autocomplete="username" maxlength="80" required>
+        <label for="password">Contraseña</label><input id="password" name="password" type="password" autocomplete="current-password" maxlength="128" required>
+        <button class="primary full" type="submit">Entrar</button>
+        <p id="message" role="status" aria-live="polite" class="message"></p>
+      </form>
+      <details class="demo-accounts" open><summary>Cuentas ficticias para probar</summary>
+        <dl><div><dt>Usuario</dt><dd><code>usuario</code><br><code>UsuarioDemo2026!</code></dd></div><div><dt>Administrador</dt><dd><code>admin</code><br><code>AdminDemo2026!</code></dd></div></dl>
+      </details>
+      <p class="footnote">El administrador puede consultar registros y ejecutar una prueba de carga local.</p>
+    </div>
+  </section>
+</main></body></html>

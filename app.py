@@ -1,199 +1,379 @@
-"""Aplicación didáctica local. No usar ni publicar fuera de este laboratorio."""
+"""Laboratorio local: aplicación y ejecutor fijo, sin dependencias externas."""
 
-from http.cookies import SimpleCookie
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from collections import Counter, deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import hmac
+from http.client import HTTPConnection
+from http.cookies import CookieError, SimpleCookie
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+from pathlib import Path
 import secrets
-import sqlite3
+import sys
 import threading
 import time
-from collections import deque
 from urllib.parse import urlsplit
 
-DB_PATH = "/tmp/lab.db"
-SESSION_KEY = secrets.token_bytes(32)
-COUNTS = {"open": 0, "protected": 0}
-COUNTS_LOCK = threading.Lock()
+HTML = Path(__file__).parent / "html"
+SESSION_TTL = 1800
+SESSIONS = {}
+SESSIONS_LOCK = threading.Lock()
 ATTEMPTS = {}
 ATTEMPTS_LOCK = threading.Lock()
+COUNTS = {"open": 0, "protected": 0}
+COUNTS_LOCK = threading.Lock()
+HASH_ITERATIONS = 210_000
 
 
-def connect_db():
-    db = sqlite3.connect(DB_PATH, timeout=5)
-    db.row_factory = sqlite3.Row
-    return db
+def password_record(password):
+    salt = secrets.token_bytes(16)
+    return salt, hashlib.pbkdf2_hmac("sha256", password.encode(), salt, HASH_ITERATIONS)
 
 
-def initialize_db():
-    with connect_db() as db:
-        db.executescript("""
-            CREATE TABLE IF NOT EXISTS accounts (
-                username TEXT PRIMARY KEY, password TEXT NOT NULL, display_name TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS products (
-                id INTEGER PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL,
-                price REAL NOT NULL, stock INTEGER NOT NULL
-            );
-        """)
-        db.execute(
-            "INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)",
-            ("admin", "demo1234", "Cuenta de demostración"),
-        )
-        db.executemany(
-            "INSERT OR IGNORE INTO products VALUES (?, ?, ?, ?, ?)",
-            [
-                (1, "Café de la casa", "Despensa", 18500, 18),
-                (2, "Pan de masa madre", "Panadería", 9200, 7),
-                (3, "Mermelada de mora", "Despensa", 12600, 12),
-            ],
-        )
+# Cuentas ficticias documentadas. En memoria sólo se conservan sal y hash.
+ACCOUNTS = {
+    "usuario": {"role": "usuario", "password": password_record("UsuarioDemo2026!")},
+    "admin": {"role": "admin", "password": password_record("AdminDemo2026!")},
+}
+DUMMY_PASSWORD = password_record(secrets.token_hex(20))
+PRODUCTS = [
+    {"name": "Café de la casa", "category": "Despensa", "price": 18500, "stock": 18},
+    {"name": "Pan de masa madre", "category": "Panadería", "price": 9200, "stock": 7},
+    {"name": "Mermelada de mora", "category": "Despensa", "price": 12600, "stock": 12},
+]
 
 
-def make_session(username):
-    expires = int(time.time()) + 1800
-    payload = f"{username}:{expires}".encode()
-    signature = hmac.new(SESSION_KEY, payload, hashlib.sha256).hexdigest()
-    return (payload.decode() + ":" + signature)
-
-
-def valid_session(cookie_header):
+def session_from(cookie_header):
     jar = SimpleCookie()
     try:
         jar.load(cookie_header or "")
         token = jar["lab_session"].value
-        username, expires, signature = token.split(":", 2)
-        payload = f"{username}:{expires}".encode()
-        expected = hmac.new(SESSION_KEY, payload, hashlib.sha256).hexdigest()
-        return username if int(expires) > time.time() and hmac.compare_digest(signature, expected) else None
-    except (KeyError, ValueError):
-        return None
+    except (CookieError, KeyError, ValueError):
+        return None, None
+    with SESSIONS_LOCK:
+        session = SESSIONS.get(token)
+        if session and session["expires"] > time.time():
+            return token, dict(session)
+        SESSIONS.pop(token, None)
+    return None, None
+
+
+def new_session(username, old_token):
+    now = time.time()
+    with SESSIONS_LOCK:
+        for token in list(SESSIONS):
+            if SESSIONS[token]["expires"] <= now:
+                del SESSIONS[token]
+        if old_token:
+            SESSIONS.pop(old_token, None)
+        if len(SESSIONS) >= 2048:
+            del SESSIONS[next(iter(SESSIONS))]
+        token = secrets.token_urlsafe(32)
+        session = {"username": username, "role": ACCOUNTS[username]["role"],
+                   "csrf": secrets.token_urlsafe(32), "expires": now + SESSION_TTL}
+        SESSIONS[token] = session
+    return token, session
+
+
+def worker_request(method, path):
+    # Destino interno fijo. Nunca se aceptan URLs ni comandos del cliente.
+    connection = HTTPConnection("172.28.0.20", 8001, timeout=5)
+    try:
+        body = b"{}" if method == "POST" else None
+        connection.request(method, path, body, {"Content-Type": "application/json"})
+        response = connection.getresponse()
+        return response.status, json.loads(response.read())
+    finally:
+        connection.close()
+
+
+class LabServer(ThreadingHTTPServer):
+    request_queue_size = 256
+    daemon_threads = True
 
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "DemoApp"
     sys_version = ""
-    request_queue_size = 256
+    timeout = 10
 
     def log_message(self, fmt, *args):
-        # Deja trazas HTTP breves en docker logs sin imprimir contraseñas ni cuerpos POST.
+        # Sin cuerpos POST, contraseñas ni cookies en los registros.
         print(f"{self.client_address[0]} {fmt % args}", flush=True)
 
-    def send_json(self, status, data, session=None):
-        payload = json.dumps(data, ensure_ascii=False).encode()
+    def send_body(self, status, payload, content_type, cookie=None):
         self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(payload)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("X-Content-Type-Options", "nosniff")
-        if session:
-            self.send_header(
-                "Set-Cookie",
-                f"lab_session={session}; Path=/; HttpOnly; SameSite=Strict; Max-Age=1800",
-            )
+        if cookie is not None:
+            self.send_header("Set-Cookie", cookie)
         self.end_headers()
-        self.wfile.write(payload)
+        if self.command != "HEAD":
+            self.wfile.write(payload)
+
+    def send_json(self, status, data, cookie=None):
+        self.send_body(status, json.dumps(data, ensure_ascii=False).encode(),
+                       "application/json; charset=utf-8", cookie)
+
+    def error(self, status, message):
+        return self.send_json(status, {"ok": False, "message": message})
 
     def read_json(self):
+        if self.headers.get("Transfer-Encoding"):
+            raise ValueError("No se admite Transfer-Encoding.")
+        if self.headers.get("Content-Type", "").split(";")[0].strip() != "application/json":
+            raise ValueError("Usa Content-Type: application/json.")
         size = int(self.headers.get("Content-Length", "0"))
-        if size < 1 or size > 4096:
+        if not 1 <= size <= 4096:
             raise ValueError("El cuerpo debe tener entre 1 y 4096 bytes.")
         data = json.loads(self.rfile.read(size))
         if not isinstance(data, dict):
             raise ValueError("Se esperaba un objeto JSON.")
         return data
 
+    def require_session(self, admin=False):
+        token, session = session_from(self.headers.get("Cookie"))
+        if not session:
+            self.error(401, "Inicia sesión para continuar.")
+            return None, None
+        if admin and session["role"] != "admin":
+            self.error(403, "Esta sección requiere una cuenta administrativa.")
+            return None, None
+        return token, session
+
+    def same_origin(self):
+        origin = self.headers.get("Origin")
+        if origin:
+            try:
+                parsed = urlsplit(origin)
+            except ValueError:
+                self.error(403, "Origen de solicitud no permitido.")
+                return False
+            scheme = self.headers.get("X-Forwarded-Proto", "http")
+            if parsed.scheme != scheme or parsed.netloc != self.headers.get("Host"):
+                self.error(403, "Origen de solicitud no permitido.")
+                return False
+        if self.headers.get("Sec-Fetch-Site") == "cross-site":
+            self.error(403, "Origen de solicitud no permitido.")
+            return False
+        return True
+
+    def do_HEAD(self):
+        self.do_GET()
+
     def do_GET(self):
         path = urlsplit(self.path).path
-        if path == "/api/demo/open":
-            self.record_demo("open")
-            return self.send_json(200, {"ok": True, "message": "La ruta abierta llegó a la aplicación."})
-        if path == "/api/demo/protected":
-            self.record_demo("protected")
-            return self.send_json(200, {"ok": True, "message": "Nginx permitió esta solicitud."})
+        if path in ("/panel", "/panel/", "/tienda.html", "/admin", "/admin/", "/monitor.html"):
+            admin = path in ("/admin", "/admin/", "/monitor.html")
+            if not self.require_session(admin)[1]:
+                return
+            filename = "monitor.html" if admin else "tienda.html"
+            return self.send_body(200, (HTML / filename).read_bytes(), "text/html; charset=utf-8")
+        if path in ("/api/demo/open", "/api/demo/protected"):
+            mode = path.rsplit("/", 1)[1]
+            with COUNTS_LOCK:
+                COUNTS[mode] += 1
+            return self.send_json(200, {"ok": True, "message": "La solicitud llegó a Python."})
         if path == "/api/demo/stats":
             with COUNTS_LOCK:
                 return self.send_json(200, dict(COUNTS))
-        if path == "/api/monitor":
-            if not valid_session(self.headers.get("Cookie")):
-                return self.send_json(401, {"ok": False})
+        if path == "/api/session":
+            _, session = self.require_session()
+            if session:
+                return self.send_json(200, {"ok": True, **session})
+            return
+        if path == "/api/products":
+            if self.require_session()[1]:
+                return self.send_json(200, {"ok": True, "products": PRODUCTS})
+            return
+        if path in ("/api/monitor", "/api/admin/load"):
+            if not self.require_session(admin=True)[1]:
+                return
+            if path == "/api/admin/load":
+                return self.forward_worker("GET", "/status")
             try:
                 with open("/monitor/access.log", encoding="utf-8") as log:
-                    lines = list(deque(log, maxlen=500))
+                    lines = deque(log, maxlen=500)
                 entries = []
                 for line in lines:
                     try:
                         entry = json.loads(line)
-                        if entry.get("path") != "/api/monitor":
+                        if entry.get("path") not in ("/api/monitor", "/api/admin/load"):
                             entries.append(entry)
                     except ValueError:
                         continue
                 return self.send_json(200, {"ok": True, "entries": entries[::-1]})
             except FileNotFoundError:
                 return self.send_json(200, {"ok": True, "entries": []})
-        if path == "/api/products":
-            username = valid_session(self.headers.get("Cookie"))
-            if not username:
-                return self.send_json(401, {"ok": False, "message": "Inicia sesión para ver el inventario."})
-            with connect_db() as db:
-                rows = db.execute("SELECT name, category, price, stock FROM products ORDER BY id").fetchall()
-            return self.send_json(200, {"ok": True, "products": [dict(row) for row in rows]})
-        return self.send_json(404, {"ok": False, "message": "Ruta no encontrada."})
+        return self.error(404, "Ruta no encontrada.")
 
-    def record_demo(self, mode):
-        with COUNTS_LOCK:
-            COUNTS[mode] += 1
+    def forward_worker(self, method, path):
+        try:
+            status, data = worker_request(method, path)
+            return self.send_json(status, data)
+        except (OSError, ValueError):
+            return self.error(502, "El contenedor atacante no está disponible. Revisa Docker Compose.")
 
     def do_POST(self):
         path = urlsplit(self.path).path
+        if path not in ("/api/auth/login", "/api/auth/logout", "/api/admin/load"):
+            return self.error(403, "Método no permitido en esta ruta.")
+        if not self.same_origin():
+            return
+        session = None
+        token = None
+        if path != "/api/auth/login":
+            token, session = self.require_session(admin=path == "/api/admin/load")
+            if not session:
+                return
+            if not hmac.compare_digest(self.headers.get("X-CSRF-Token", "").encode(), session["csrf"].encode()):
+                return self.error(403, "Token de sesión incorrecto. Recarga la página.")
         try:
             data = self.read_json()
-        except (ValueError, json.JSONDecodeError) as error:
-            return self.send_json(400, {"ok": False, "message": str(error)})
-
-        username = str(data.get("username", ""))[:80]
-        password = str(data.get("password", ""))[:80]
-        if path == "/api/auth/login":
-            key = username.lower()
-            now = time.time()
-            with ATTEMPTS_LOCK:
-                failures, blocked_until = ATTEMPTS.get(key, (0, 0))
-                if blocked_until > now:
-                    return self.send_json(429, {"ok": False, "message": "Demasiados intentos. Espera unos segundos."})
-                if blocked_until:
-                    failures = 0
-                    ATTEMPTS.pop(key, None)
-                with connect_db() as db:
-                    row = db.execute(
-                        "SELECT username, display_name FROM accounts WHERE username = ? AND password = ?",
-                        (username, password),
-                    ).fetchone()
-                if not row:
-                    failures += 1
-                    ATTEMPTS[key] = (failures, now + 30 if failures >= 5 else 0)
-                    if failures >= 5:
-                        return self.send_json(429, {"ok": False, "message": "Demasiados intentos. Espera 30 segundos."})
-                    return self.send_json(401, {"ok": False, "message": "Usuario o contrase?a incorrectos."})
-                ATTEMPTS.pop(key, None)
-            return self.send_json(200, {"ok": True}, make_session(row["username"]))
+        except (ValueError, UnicodeError) as error:
+            return self.error(400, str(error))
+        if path == "/api/admin/load":
+            if data:
+                return self.error(400, "La prueba no acepta parámetros: destino y carga son fijos.")
+            return self.forward_worker("POST", "/run")
         if path == "/api/auth/logout":
-            payload = b'{"ok":true}'
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(payload)))
-            self.send_header("Set-Cookie", "lab_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
-            self.end_headers()
-            self.wfile.write(payload)
+            with SESSIONS_LOCK:
+                SESSIONS.pop(token, None)
+            return self.send_json(200, {"ok": True}, self.session_cookie("", 0))
+
+        username = data.get("username", "")
+        password = data.get("password", "")
+        if not isinstance(username, str) or not isinstance(password, str) or len(username) > 80 or len(password) > 128:
+            return self.error(400, "Credenciales con formato incorrecto.")
+        key = username.lower()
+        now = time.time()
+        with ATTEMPTS_LOCK:
+            for old_key in list(ATTEMPTS):
+                if now - ATTEMPTS[old_key][2] > 60:
+                    del ATTEMPTS[old_key]
+            failures, blocked_until, _ = ATTEMPTS.get(key, (0, 0, now))
+            if blocked_until > now:
+                return self.error(429, "Demasiados intentos. Espera 30 segundos.")
+            if blocked_until:
+                failures = 0
+                ATTEMPTS.pop(key, None)
+        account = ACCOUNTS.get(username)
+        salt, expected = account["password"] if account else DUMMY_PASSWORD
+        actual = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, HASH_ITERATIONS)
+        if not hmac.compare_digest(actual, expected) or not account:
+            with ATTEMPTS_LOCK:
+                current = ATTEMPTS.get(key, (0, 0, now))
+                failures = max(failures, current[0]) + 1
+                if len(ATTEMPTS) >= 2048 and key not in ATTEMPTS:
+                    del ATTEMPTS[next(iter(ATTEMPTS))]
+                ATTEMPTS[key] = (failures, now + 30 if failures >= 5 else 0, now)
+            if failures >= 5:
+                return self.error(429, "Demasiados intentos. Espera 30 segundos.")
+            return self.error(401, "Usuario o contraseña incorrectos.")
+        with ATTEMPTS_LOCK:
+            ATTEMPTS.pop(key, None)
+        old_token, _ = session_from(self.headers.get("Cookie"))
+        token, session = new_session(username, old_token)
+        return self.send_json(200, {"ok": True, **session}, self.session_cookie(token, SESSION_TTL))
+
+    @staticmethod
+    def session_cookie(token, age):
+        # Secure se admite en http://localhost en navegadores modernos.
+        return f"lab_session={token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age={age}"
+
+
+# El mismo archivo se reutiliza en cliente-atacante con --attacker.
+LOAD_LOCK = threading.Lock()
+LOAD_STATE = {"state": "idle"}
+LOAD_TOTAL = 1000
+LOAD_CONCURRENCY = 50
+
+
+def load_once(_):
+    # Sin redirecciones, proxy del entorno, URL configurable, shell ni cookie de admin.
+    connection = HTTPConnection("172.28.0.10", 80, timeout=10)
+    payload = json.dumps({"username": "usuario", "password": "UsuarioDemo2026!"})
+    try:
+        connection.request("POST", "/api/auth/login", payload,
+                           {"Content-Type": "application/json", "Host": "localhost"})
+        response = connection.getresponse()
+        response.read()
+        return response.status
+    finally:
+        connection.close()
+
+
+def execute_load():
+    started = time.monotonic()
+    codes = Counter()
+    errors = 0
+    try:
+        with ThreadPoolExecutor(max_workers=LOAD_CONCURRENCY) as pool:
+            futures = [pool.submit(load_once, i) for i in range(LOAD_TOTAL)]
+            for future in as_completed(futures):
+                try:
+                    codes[str(future.result())] += 1
+                except Exception as error:
+                    # Fallos de transporte aparte; nunca se inventa un código HTTP.
+                    errors += 1
+                    print(f"Fallo de transporte: {type(error).__name__}", flush=True)
+                with LOAD_LOCK:
+                    LOAD_STATE.update(completed=sum(codes.values()) + errors, codes=dict(codes),
+                                      errors=errors, duration_seconds=round(time.monotonic() - started, 3))
+    except Exception as error:
+        with LOAD_LOCK:
+            LOAD_STATE.update(state="failed", message=f"No se completó la prueba: {type(error).__name__}")
+        return
+    with LOAD_LOCK:
+        # Admitida significa enviada a la aplicación, independientemente del login.
+        LOAD_STATE.update(state="done", admitted=sum(codes.get(str(code), 0) for code in (200, 400, 401, 429)),
+                          rejected=codes.get("503", 0),
+                          other_http=sum(count for code, count in codes.items() if code not in ("200", "400", "401", "429", "503")),
+                          duration_seconds=round(time.monotonic() - started, 3))
+    print(json.dumps(LOAD_STATE, ensure_ascii=False), flush=True)
+
+
+class AttackerHandler(Handler):
+    def allowed(self):
+        if self.client_address[0] != "172.28.0.30":
+            self.error(403, "Sólo la aplicación del laboratorio puede controlar esta prueba.")
+            return False
+        return True
+
+    def do_GET(self):
+        if not self.allowed():
             return
+        if self.path != "/status":
+            return self.error(404, "Ruta no encontrada.")
+        with LOAD_LOCK:
+            return self.send_json(200, dict(LOAD_STATE))
 
-        return self.send_json(404, {"ok": False, "message": "Ruta no encontrada."})
-
-    def do_HEAD(self):
-        self.send_error(405, "Usa GET para esta ruta.")
+    def do_POST(self):
+        if not self.allowed():
+            return
+        if self.path != "/run":
+            return self.error(404, "Ruta no encontrada.")
+        try:
+            if self.read_json():
+                return self.error(400, "No se aceptan parámetros.")
+        except (ValueError, UnicodeError):
+            return self.error(400, "Se esperaba un objeto vacío.")
+        with LOAD_LOCK:
+            if LOAD_STATE["state"] == "running":
+                return self.error(409, "Ya hay una prueba activa.")
+            LOAD_STATE.clear()
+            LOAD_STATE.update(state="running", id=secrets.token_hex(8), total=LOAD_TOTAL,
+                              concurrency=LOAD_CONCURRENCY, completed=0, codes={}, errors=0,
+                              target="http://172.28.0.10/api/auth/login", method="POST",
+                              duration_seconds=0)
+            threading.Thread(target=execute_load, daemon=True).start()
+            return self.send_json(202, dict(LOAD_STATE))
 
 
 if __name__ == "__main__":
-    initialize_db()
-    print("Aplicación de demostración escuchando en el puerto 8000", flush=True)
-    ThreadingHTTPServer(("0.0.0.0", 8000), Handler).serve_forever()
+    attacker = sys.argv[1:] == ["--attacker"]
+    port = 8001 if attacker else 8000
+    print(f"{'Atacante local' if attacker else 'Aplicación'} escuchando en {port}", flush=True)
+    LabServer(("0.0.0.0", port), AttackerHandler if attacker else Handler).serve_forever()
